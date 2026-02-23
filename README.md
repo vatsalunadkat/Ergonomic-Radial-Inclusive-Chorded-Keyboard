@@ -5,7 +5,7 @@
   <h3 align="center">Ergonomic Inclusive Controller Keyboard (EICK)</h3>
 
   <p align="center">
-    An ergonomic keyboard system for Android using joystick-based chord input
+    An ergonomic keyboard system for Android using swipe based chord input
     <br />
     <br />
     <a href="https://github.com/vatsalunadkat/Ergonomic-Inclusive-Controller-Keybord/issues">TODO - Visit App - Playstore Link</a>
@@ -27,33 +27,20 @@
       <a href="#about-the-project">About The Project</a>
       <ul>
         <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#usage">Usage</a>
-      <ul>
-        <li><a href="#checking-capabilities">Checking Capabilities</a></li>
-        <li><a href="#using-provided-test-data">Using provided test data</a></li>
-        <li><a href="#using-your-own-data">Using your own data</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#roadmap">Roadmap</a>
-      <ul>
-        <li><a href="#project-timeline">Project Timeline</a></li>
-        <li><a href="#extra-features-added">Extra features added</a></li>
-        <li><a href="#future-scope">Future scope</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#future-scope">Future Scope</a></li>
       </ul>
     </li>
     <li>
       <a href="#project-artifacts">Project Artifacts</a>
       <ul>
-        <li><a href="#screen-mockups-vs-current-webpage">Screen Mockups vs Current Webpage</a></li>
-        <li><a href="#architecture-diagram">Architecture Diagram</a></li>
-        <li><a href="#sleep-data-calculations">Sleep Data Calculations</a></li>
+        <li><a href="#swipe-typing">Swipe Typing</a></li>
+        <li><a href="#typing-with-controller">Typing with Controller</a></li>
+        <li><a href="#keyboard-typing-with-no-fingers-vs-typing-with-controller">Keyboard Typing with No Fingers vs Typing with Controller</a></li>
+        <li><a href="#todo-architecture-diagram">TODO Architecture Diagram</a></li>
+        <li><a href="#controller-input-data-calculations-todo">Controller INPUT Data Calculations TODO</a></li>
       </ul>
     </li>
-    <li><a href="#contact">Contact</a></li>
   </ol>
 </details>
 
@@ -62,7 +49,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 <div align="center">
-  <img src="https://github.com/vatsalunadkat/sleep-pattern-analysis/blob/e9c002705fff6561a0f68450b7da10759fb7592b/documentation/Images/vunadkat6-sleep-pattern-analysis.png" height="400" />
+  <img src="" height="400" />
 </div>
 
 A type of ergonomic keyboard that will take input from either 2 virtual joysticks on their device screen or 2 physical joysticks of a pre-existing controller/gamepad.
