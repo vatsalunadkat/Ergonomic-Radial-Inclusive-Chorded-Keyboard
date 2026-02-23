@@ -2,19 +2,19 @@
 
 <!-- PROJECT LOGO -->
 <div align="center">
-  <h3 align="center">Ergonomic Inclusive Controller Keyboard (EICK)</h3>
+  <h3 align="center">Ergonomic Radial Inclusive Controller Keyboard (ERICK)</h3>
 
   <p align="center">
     An ergonomic keyboard system for Android using swipe based chord input
     <br />
     <br />
-    <a href="https://github.com/vatsalunadkat/Ergonomic-Inclusive-Controller-Keybord/issues">TODO - Visit App - Playstore Link</a>
+    <a href="https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/issues">TODO - Visit App - Playstore Link</a>
     ·
     <a href="https://youtu.be/rrk0dRZUqbY"> TODO - View Demo</a>
     ·
-    <a href="https://github.com/vatsalunadkat/Ergonomic-Inclusive-Controller-Keybord/issues">Report Bug</a>
+    <a href="https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/issues">Report Bug</a>
     ·
-    <a href="https://github.com/vatsalunadkat/Ergonomic-Inclusive-Controller-Keybord/issues">Request Feature</a>
+    <a href="https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/issues">Request Feature</a>
   </p>
 </div>
 
@@ -95,7 +95,7 @@ Input is provided through combinations of swipe inputs or joystick movements (ch
 - [ ] Enhanced compatibility - Add support to directly import data from the Fitbit APIs, as well as integration and support with Apple Health and Garmin.
 - [ ] Integration with Wearable Devices - Integrating with wearable devices to directly import sleep data, providing real-time insights and personalized recommendations.
 
-See the [open issues](https://github.com/vatsalunadkat/Ergonomic-Inclusive-Controller-Keybord/issues) for a full list of proposed features (and known issues).
+See the [open issues](https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/issues) for a full list of proposed features (and known issues).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
