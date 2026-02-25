@@ -41,7 +41,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
         TextField(
             value = text,
             onValueChange = { text = it },
-            label = { Text("点击这里测试键盘") },
+            label = { Text("Click and Test") },
             modifier = Modifier.padding(top = 16.dp)
         )
     }
