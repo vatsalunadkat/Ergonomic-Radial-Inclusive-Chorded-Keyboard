@@ -38,6 +38,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
     var text by remember { mutableStateOf("") }
 
     Column(modifier = modifier.padding(16.dp)) {
+        //Set a text box. When a click is triggered, the system checks the corresponding keyboard selection. If the current keyboard is selected, call MyInputMethodService.kt.
         TextField(
             value = text,
             onValueChange = { text = it },
