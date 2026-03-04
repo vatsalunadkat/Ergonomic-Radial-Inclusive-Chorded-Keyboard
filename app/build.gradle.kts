@@ -7,7 +7,6 @@ plugins {
 android {
     namespace = "com.vatoo.erick"
     compileSdk {
-
         version = release(36)
     }
 
