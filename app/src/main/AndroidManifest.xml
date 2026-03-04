@@ -40,6 +40,8 @@
 
         <activity
             android:name=".SettingsActivity"
+            android:label="Keyboard Settings"
+            android:theme="@style/Theme.ERICK"
             android:exported="false" />
 
     </application>
