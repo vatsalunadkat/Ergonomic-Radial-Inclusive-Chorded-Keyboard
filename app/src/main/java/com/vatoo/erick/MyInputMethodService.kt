@@ -18,16 +18,16 @@ class MyInputMethodService : InputMethodService() {
         val settingsBtn = view.findViewById<Button>(R.id.btn_settings)
 
         // Button clicks (typing)
-        button1.setOnClickListener {
-            currentInputConnection.commitText("1", 1)
+        button1?.setOnClickListener {
+            currentInputConnection?.commitText("1", 1)
         }
 
-        button2.setOnClickListener {
-            currentInputConnection.commitText("2", 1)
+        button2?.setOnClickListener {
+            currentInputConnection?.commitText("2", 1)
         }
 
         // NEW: open Settings screen
-        settingsBtn.setOnClickListener {
+        settingsBtn?.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
