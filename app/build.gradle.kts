@@ -6,8 +6,7 @@ plugins {
 
 android {
     namespace = "com.vatoo.erick"
-    // FIX: Changed invalid compileSdk syntax to standard integer
-    compileSdk = 35
+    compileSdk = 35 // Minimal fix: release(36) is invalid
 
     defaultConfig {
         applicationId = "com.vatoo.erick"

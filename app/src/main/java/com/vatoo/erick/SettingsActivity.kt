@@ -9,6 +9,7 @@ class SettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
+            // Reverted to original ERIC-48 shell
             SettingsScreen()
         }
     }

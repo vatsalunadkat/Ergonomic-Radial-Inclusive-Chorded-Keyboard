@@ -7,8 +7,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.ExperimentalMaterial3Api
 
-@OptIn(ExperimentalMaterial3Api::class) // FIX: TopAppBar is experimental in Material 3
+@OptIn(ExperimentalMaterial3Api::class) // Essential fix for compilation
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
     val selected by vm.selectedLayout.collectAsState()
