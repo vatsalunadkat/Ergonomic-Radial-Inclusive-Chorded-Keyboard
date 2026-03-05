@@ -1,8 +1,10 @@
 package com.vatoo.erick
 
+import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.view.View
 import android.widget.Button
+import android.widget.ImageButton
 
 class MyInputMethodService : InputMethodService() {
 
@@ -12,6 +14,7 @@ class MyInputMethodService : InputMethodService() {
 //      Find those two blue buttons through findViewById
         val button1 = view.findViewById<Button>(R.id.button1)
         val button2 = view.findViewById<Button>(R.id.button2)
+        val settingsButton = view.findViewById<ImageButton>(R.id.settingsButton)
 
 //      Listening for clicks: Set setOnClickListener for the button
         button1?.setOnClickListener {
@@ -21,6 +24,13 @@ class MyInputMethodService : InputMethodService() {
 
         button2?.setOnClickListener {
             currentInputConnection?.commitText("2", 1)
+        }
+
+        settingsButton?.setOnClickListener {
+            // Launch settings activity
+            val intent = Intent(this, SettingsActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
         }
 
         return view
