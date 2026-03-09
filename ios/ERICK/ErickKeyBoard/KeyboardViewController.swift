@@ -13,22 +13,57 @@ struct KeyboardContainerView: View {
     @ObservedObject var viewModel: KeyboardViewModel
     // 闭包回调参数：dx, dy, isLeft, isDownOrMove, isUp
     var onTouch: (Float, Float, Bool, Bool, Bool) -> Void
+    
+    @State private var showSettings = false // 控制设置页面的显示
 
     var body: some View {
-        HStack(spacing: 16) {
-            // 左摇杆
-            JoystickView(isRightSide: false, previewText: "") { dx, dy, isDownOrMove, isUp in
-                onTouch(dx, dy, true, isDownOrMove, isUp)
+        ZStack {
+            VStack(spacing: 0) {
+                // 顶部工具条：放设置按钮等
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        withAnimation {
+                            showSettings = true
+                        }
+                    }) {
+                        Image(systemName: "gear")
+                            .font(.title2)
+                            .foregroundColor(.gray)
+                            .padding(.horizontal)
+                            .padding(.top, 4)
+                    }
+                }
+                
+                // 摇杆控制区
+                HStack(spacing: 16) {
+                    // 左摇杆
+                    JoystickView(isRightSide: false, previewText: "") { dx, dy, isDownOrMove, isUp in
+                        onTouch(dx, dy, true, isDownOrMove, isUp)
+                    }
+                    
+                    // 右摇杆 (绑定 ViewModel 里的预览文字)
+                    JoystickView(isRightSide: true, previewText: viewModel.previewText) { dx, dy, isDownOrMove, isUp in
+                        onTouch(dx, dy, false, isDownOrMove, isUp)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
             }
+            .background(Color(hex: "#ECEFF1")) // 浅蓝色背景
             
-            // 右摇杆 (绑定 ViewModel 里的预览文字)
-            JoystickView(isRightSide: true, previewText: viewModel.previewText) { dx, dy, isDownOrMove, isUp in
-                onTouch(dx, dy, false, isDownOrMove, isUp)
+            // 覆盖设置页面
+            if showSettings {
+                SettingsView(onClose: {
+                    withAnimation {
+                        showSettings = false
+                    }
+                })
+                .transition(.move(edge: .bottom))
+                .zIndex(1)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(Color(hex: "#ECEFF1")) // 浅蓝色背景
     }
 }
 
@@ -43,8 +78,9 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         
         // --- 唤醒跨平台大脑 ---
         // Kotlin 的全局函数在 Swift 里会自动被放到带 'Kt' 后缀的命名空间下
-        stateMachine = // Swift 现在会极其自然地调用我们刚刚写的那个次级构造函数！
-        stateMachine = KeyboardStateMachine(delegate: self)
+//        stateMachine = // Swift 现在会极其自然地调用我们刚刚写的那个次级构造函数！
+        // 使用我们在 Kotlin 里建好的工厂 (KeyboardFactory) 去拿货
+        stateMachine = KeyboardFactory.shared.createEngine(delegate: self)
         
         // --- UI 挂载与闭包打通 ---
         let containerView = KeyboardContainerView(viewModel: viewModel) { [weak self] dx, dy, isLeft, isDown, isUp in
@@ -61,12 +97,16 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         hostingController.didMove(toParent: self)
         
         // 设置 iOS 的自动布局约束（撑满全屏，高度定为盲打舒适的 280）
+        let heightConstraint = self.view.heightAnchor.constraint(equalToConstant: 280)
+        heightConstraint.priority = .init(999)
+        
+        // 2. 激活所有约束
         NSLayoutConstraint.activate([
             hostingController.view.leftAnchor.constraint(equalTo: self.view.leftAnchor),
             hostingController.view.rightAnchor.constraint(equalTo: self.view.rightAnchor),
             hostingController.view.topAnchor.constraint(equalTo: self.view.topAnchor),
             hostingController.view.bottomAnchor.constraint(equalTo: self.view.bottomAnchor),
-            self.view.heightAnchor.constraint(equalToConstant: 280)
+            heightConstraint
         ])
     }
     
@@ -111,3 +151,4 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         }
     }
 }
+
