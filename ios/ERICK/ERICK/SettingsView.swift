@@ -8,10 +8,12 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("layout_type") private var layoutType: String = "logical"
-    @AppStorage("dark_theme") private var darkTheme: Bool = false
-    @AppStorage("colorblind_mode") private var colorblindMode: Bool = false
-    @AppStorage("left_handed_mode") private var leftHandedMode: Bool = false
+    private static let appGroupDefaults = UserDefaults(suiteName: "group.com.vatoo.erick") ?? .standard
+    
+    @AppStorage("layout_type", store: SettingsView.appGroupDefaults) private var layoutType: String = "logical"
+    @AppStorage("dark_theme", store: SettingsView.appGroupDefaults) private var darkTheme: Bool = false
+    @AppStorage("colorblind_mode", store: SettingsView.appGroupDefaults) private var colorblindMode: Bool = false
+    @AppStorage("left_handed_mode", store: SettingsView.appGroupDefaults) private var leftHandedMode: Bool = false
     
     @Environment(\.dismiss) var dismiss
 
