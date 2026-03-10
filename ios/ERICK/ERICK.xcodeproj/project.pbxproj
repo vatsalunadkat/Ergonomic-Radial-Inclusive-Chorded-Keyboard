@@ -474,7 +474,6 @@
 				CODE_SIGN_ENTITLEMENTS = ErickKeyBoard/ErickKeyBoard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = S894LB85BF;
 				FRAMEWORK_SEARCH_PATHS = (
 					"/Users/starship/StudioProjects/Ergonomic-Radial-Inclusive-Chorded-Keyboard/shared/build/bin/iosSimulatorArm64/debugFramework",
 					"$(PROJECT_DIR)/ErickKeyBoard",
