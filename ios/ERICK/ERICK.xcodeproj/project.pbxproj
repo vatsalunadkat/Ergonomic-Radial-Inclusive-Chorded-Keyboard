@@ -416,7 +416,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "ERICK-iOS.ERICK";
+				PRODUCT_BUNDLE_IDENTIFIER = com.vatoo.erick.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -479,6 +479,7 @@
 					"$(PROJECT_DIR)",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/SharedKeyboard.xcframework/ios-arm64/SharedKeyboard.framework/Headers";
 				INFOPLIST_FILE = ErickKeyBoard/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ERICKeyboard;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -500,6 +501,7 @@
 				SWIFT_SYSTEM_INCLUDE_PATHS = "$(PROJECT_DIR)";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/SharedKeyboard.xcframework";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -516,6 +518,7 @@
 					"$(PROJECT_DIR)",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/SharedKeyboard.xcframework/ios-arm64/SharedKeyboard.framework/Headers";
 				INFOPLIST_FILE = ErickKeyBoard/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ERICKeyboard;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -537,6 +540,7 @@
 				SWIFT_SYSTEM_INCLUDE_PATHS = "$(PROJECT_DIR)";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/SharedKeyboard.xcframework";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
