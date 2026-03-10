@@ -476,12 +476,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S894LB85BF;
 				FRAMEWORK_SEARCH_PATHS = (
-					"/Users/starship/StudioProjects/Ergonomic-Radial-Inclusive-Chorded-Keyboard/shared/build/bin/iosSimulatorArm64/debugFramework",
 					"$(PROJECT_DIR)/ErickKeyBoard",
 					"$(PROJECT_DIR)",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
-				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/sharedKit.framework/Headers";
+				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/SharedKeyboard.xcframework/ios-arm64/SharedKeyboard.framework/Headers";
 				INFOPLIST_FILE = ErickKeyBoard/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ERICKeyboard;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -499,11 +498,11 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "/Users/starship/StudioProjects/Ergonomic-Radial-Inclusive-Chorded-Keyboard/shared/build/bin/iosSimulatorArm64/debugFramework $(PROJECT_DIR)";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)";
 				SWIFT_SYSTEM_INCLUDE_PATHS = "$(PROJECT_DIR)";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "/Users/starship/StudioProjects/Ergonomic-Radial-Inclusive-Chorded-Keyboard/shared/build/bin/iosSimulatorArm64/debugFramework/sharedKit.framework";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/SharedKeyboard.xcframework";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -516,12 +515,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S894LB85BF;
 				FRAMEWORK_SEARCH_PATHS = (
-					"/Users/starship/StudioProjects/Ergonomic-Radial-Inclusive-Chorded-Keyboard/shared/build/bin/iosSimulatorArm64/debugFramework",
 					"$(PROJECT_DIR)/ErickKeyBoard",
 					"$(PROJECT_DIR)",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
-				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/sharedKit.framework/Headers";
+				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/SharedKeyboard.xcframework/ios-arm64/SharedKeyboard.framework/Headers";
 				INFOPLIST_FILE = ErickKeyBoard/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ERICKeyboard;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -539,11 +537,11 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "/Users/starship/StudioProjects/Ergonomic-Radial-Inclusive-Chorded-Keyboard/shared/build/bin/iosSimulatorArm64/debugFramework $(PROJECT_DIR)";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)";
 				SWIFT_SYSTEM_INCLUDE_PATHS = "$(PROJECT_DIR)";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "/Users/starship/StudioProjects/Ergonomic-Radial-Inclusive-Chorded-Keyboard/shared/build/bin/iosSimulatorArm64/debugFramework/sharedKit.framework";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/SharedKeyboard.xcframework";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
