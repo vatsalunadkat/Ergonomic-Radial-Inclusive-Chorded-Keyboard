@@ -14,6 +14,17 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import android.content.Intent
 import android.widget.ImageButton
+import android.widget.FrameLayout
+import android.widget.TextView
+import android.graphics.Color
+import android.text.SpannableString
+import android.text.SpannableStringBuilder
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
+import android.graphics.Typeface
+import com.vatoo.erick.shared.ColorPalettes
+import com.vatoo.erick.shared.Direction
 
 // 注意：如果报红，请使用 Alt+Enter 导入你在 Shared 模块中写的类 (InputAction, KeyboardStateMachine 等)
 
@@ -21,6 +32,8 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
 
     private lateinit var leftJoystick: JoystickView
     private lateinit var rightJoystick: JoystickView
+    private lateinit var previewContainer: FrameLayout
+    private lateinit var previewText: TextView
 
     // --- 协程生命周期管理 ---
     // 必须给状态机提供一个作用域，当输入法关闭时，销毁所有倒计时任务防止内存泄漏
@@ -47,6 +60,9 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         leftJoystick = view.findViewById(R.id.left_joystick)
         rightJoystick = view.findViewById(R.id.right_joystick)
         rightJoystick.isRightSide = true
+
+        previewContainer = view.findViewById(R.id.live_preview_container)
+        previewText = view.findViewById(R.id.live_preview_text)
 
         leftJoystick.setOnTouchListener { v, event ->
             v.performClick()
@@ -91,8 +107,75 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         // 2. 将数据喂给跨平台状态机 (它不需要知道什么是 MotionEvent)
         stateMachine.handleTouch(dx, dy, isLeft, isDownOrMove, isUpOrCancel)
 
-        // 3. 从状态机获取结果，更新预览 UI
-        rightJoystick.setPreviewText(stateMachine.getPreviewText())
+        // 3. 从状态机获取原先的预览逻辑（移除旧的摇杆文字预览）
+        // rightJoystick.setPreviewText(stateMachine.getPreviewText())
+
+        updateLivePreview()
+    }
+
+    private fun updateLivePreview() {
+        val leftDir = leftJoystick.activeDirection
+        val rightDir = rightJoystick.activeDirection
+
+        if (leftDir == Direction.NONE) {
+            previewContainer.visibility = View.INVISIBLE
+            return
+        }
+
+        previewContainer.visibility = View.VISIBLE
+
+        val chars = stateMachine.getCharactersForDirection(leftDir)
+        if (chars.isEmpty()) {
+            previewText.text = ""
+            return
+        }
+
+        val builder = SpannableStringBuilder()
+
+        // 8 possible right directions in clockwise order
+        val allRightDirs = listOf(
+            Direction.N, Direction.NE, Direction.E, Direction.SE,
+            Direction.S, Direction.SW, Direction.W, Direction.NW
+        )
+
+        for (i in chars.indices) {
+            val charStr = chars[i]
+            if (charStr == "*") continue
+
+            val dirForChar = allRightDirs.getOrNull(i) ?: Direction.NONE
+
+            val start = builder.length
+            builder.append(charStr)
+            builder.append("  ") // spacing
+
+            val colorHex = ColorPalettes.getColorForDirectionHex(dirForChar)
+            val color = Color.parseColor(colorHex)
+
+            builder.setSpan(
+                ForegroundColorSpan(color),
+                start,
+                start + charStr.length,
+                SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            // Enlarge if this is the active right direction
+            if (dirForChar == rightDir && rightDir != Direction.NONE) {
+                builder.setSpan(
+                    RelativeSizeSpan(1.5f),
+                    start,
+                    start + charStr.length,
+                    SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                builder.setSpan(
+                    StyleSpan(Typeface.BOLD),
+                    start,
+                    start + charStr.length,
+                    SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        }
+
+        previewText.text = builder
     }
 
     // ==========================================
