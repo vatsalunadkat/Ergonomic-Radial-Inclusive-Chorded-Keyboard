@@ -92,24 +92,15 @@ class KeyboardStateMachine(
 }
 
 // 专门为 iOS 准备的无痛初始化工厂函数
-// Explicit overload — Swift cannot rely on Kotlin/Native default arguments
-fun createKeyboardStateMachineForIOS(delegate: KeyboardActionDelegate): KeyboardStateMachine =
-    createKeyboardStateMachineForIOS(delegate, LayoutType.LOGICAL)
-
 fun createKeyboardStateMachineForIOS(delegate: KeyboardActionDelegate,
-                                     layoutType: LayoutType): KeyboardStateMachine {
+                                     layoutType: LayoutType = LayoutType.LOGICAL): KeyboardStateMachine {
     // 自动在 Kotlin 端创建一个绑定主线程的作用域供 iOS 使用
     return KeyboardStateMachine(delegate, layoutType)
 }
 
 object KeyboardFactory {
-    // Explicit no-layout overload — Kotlin/Native does not reliably expose default arguments
-    // to Objective-C/Swift, so Swift callers (e.g. KeyboardFactory.shared.createEngine(delegate:))
-    // must have a concrete overload to call rather than relying on a default parameter.
-    fun createEngine(delegate: KeyboardActionDelegate): KeyboardStateMachine =
-        createEngine(delegate, LayoutType.LOGICAL)
-
     fun createEngine(delegate: KeyboardActionDelegate,
-                     layoutType: LayoutType): KeyboardStateMachine =
-        KeyboardStateMachine(delegate, layoutType)
+                     layoutType: LayoutType = LayoutType.LOGICAL): KeyboardStateMachine {
+        return KeyboardStateMachine(delegate, layoutType)
+    }
 }
