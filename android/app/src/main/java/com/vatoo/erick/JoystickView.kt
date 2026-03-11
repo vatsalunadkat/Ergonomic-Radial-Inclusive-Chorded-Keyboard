@@ -48,8 +48,23 @@ class JoystickView @JvmOverloads constructor(
         strokeWidth = 6f
     }
     
+    // Specifically for the right dial separator lines
+    private val rightSegmentLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+    }
+    
+    // Specifically for the main 8 directions on the left dial
+    private val mainDirectionLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+    }
+    
+    // For outer thick border of the left dial
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFCA28") // Golden/Orange outer rim
+        color = Color.WHITE // Changed from Golden/Orange to White
         style = Paint.Style.STROKE
         strokeWidth = 10f
     }
@@ -121,15 +136,18 @@ class JoystickView @JvmOverloads constructor(
                 val dir = directions[i]
                 val isActive = (dir == activeDirection && activeDirection != Direction.NONE)
 
-                activeSegmentPaint.color = Color.parseColor(ColorPalettes.getColorForDirectionHex(dir))
-                activeSegmentPaint.alpha = if (activeDirection != Direction.NONE && !isActive) 120 else 255
+                val parsedColor = Color.parseColor(ColorPalettes.getColorForDirectionHex(dir))
+                activeSegmentPaint.color = if (activeDirection != Direction.NONE && !isActive) darkenColor(parsedColor, 0.4f) else parsedColor
+                activeSegmentPaint.alpha = 255
 
                 canvas.drawArc(rectF, startAngle, sweepAngle, true, activeSegmentPaint)
-                canvas.drawArc(rectF, startAngle, sweepAngle, true, segmentLinePaint)
+                
+                rightSegmentLinePaint.alpha = if (activeDirection != Direction.NONE && !isActive) 60 else 255
+                canvas.drawArc(rectF, startAngle, sweepAngle, true, rightSegmentLinePaint) // Use white lines for right joystick
             }
         } else {
             // Left Dial: 3 Concentric Layers with discrete blocks
-            val innerHoleRadius = thumbRadius * 1.5f 
+            val innerHoleRadius = thumbRadius * 0.9f  // Expand the inner layers by making hole smaller to hug the thumb tightly
             val layerThickness = (baseRadius - innerHoleRadius) / 3f
             val r1 = innerHoleRadius + layerThickness
             val r2 = innerHoleRadius + layerThickness * 2f
@@ -147,13 +165,12 @@ class JoystickView @JvmOverloads constructor(
                 val dir = directions[i]
                 val startAngle = -22.5f + i * 45f
                 val isActive = (dir == activeDirection && activeDirection != Direction.NONE)
-                val alphaVal = if (activeDirection != Direction.NONE && !isActive) 100 else 255
 
                 for(j in 0 until 3) {
                     val blockStart = startAngle + j * 15f
-                    val colorHex = ColorPalettes.getColorForDirectionHex(rightDirs[j])
-                    activeSegmentPaint.color = Color.parseColor(colorHex)
-                    activeSegmentPaint.alpha = alphaVal
+                    val parsedColor = Color.parseColor(ColorPalettes.getColorForDirectionHex(rightDirs[j]))
+                    activeSegmentPaint.color = if (activeDirection != Direction.NONE && !isActive) darkenColor(parsedColor, 0.4f) else parsedColor
+                    activeSegmentPaint.alpha = 255
                     canvas.drawArc(rectFOuter, blockStart, 15f, true, activeSegmentPaint)
                 }
             }
@@ -163,13 +180,12 @@ class JoystickView @JvmOverloads constructor(
                 val dir = directions[i]
                 val startAngle = -22.5f + i * 45f
                 val isActive = (dir == activeDirection && activeDirection != Direction.NONE)
-                val alphaVal = if (activeDirection != Direction.NONE && !isActive) 100 else 255
 
                 for(j in 0 until 3) {
                     val blockStart = startAngle + j * 15f
-                    val colorHex = ColorPalettes.getColorForDirectionHex(rightDirs[3 + j])
-                    activeSegmentPaint.color = Color.parseColor(colorHex)
-                    activeSegmentPaint.alpha = alphaVal
+                    val parsedColor = Color.parseColor(ColorPalettes.getColorForDirectionHex(rightDirs[3 + j]))
+                    activeSegmentPaint.color = if (activeDirection != Direction.NONE && !isActive) darkenColor(parsedColor, 0.4f) else parsedColor
+                    activeSegmentPaint.alpha = 255
                     canvas.drawArc(rectFMiddle, blockStart, 15f, true, activeSegmentPaint)
                 }
             }
@@ -179,13 +195,12 @@ class JoystickView @JvmOverloads constructor(
                 val dir = directions[i]
                 val startAngle = -22.5f + i * 45f
                 val isActive = (dir == activeDirection && activeDirection != Direction.NONE)
-                val alphaVal = if (activeDirection != Direction.NONE && !isActive) 100 else 255
 
                 for(j in 0 until 2) {
                     val blockStart = startAngle + j * 22.5f
-                    val colorHex = ColorPalettes.getColorForDirectionHex(rightDirs[6 + j])
-                    activeSegmentPaint.color = Color.parseColor(colorHex)
-                    activeSegmentPaint.alpha = alphaVal
+                    val parsedColor = Color.parseColor(ColorPalettes.getColorForDirectionHex(rightDirs[6 + j]))
+                    activeSegmentPaint.color = if (activeDirection != Direction.NONE && !isActive) darkenColor(parsedColor, 0.4f) else parsedColor
+                    activeSegmentPaint.alpha = 255
                     canvas.drawArc(rectFInner, blockStart, 22.5f, true, activeSegmentPaint)
                 }
             }
@@ -200,18 +215,38 @@ class JoystickView @JvmOverloads constructor(
             // 6. Draw Separator Lines (Seams within layers)
             for (i in 0 until 8) {
                 val startAngle = -22.5f + i * 45f
+                val dir = directions[i]
+                
+                // For white separation lines, determine alpha based on adjacent blocks
+                // The j=0 line is right before this block. The j=3 line is right after.
                 
                 // Outer/Middle Layer radial separators (every 15 degrees)
                 for (j in 0..3) {
                     val angleRad = Math.toRadians((startAngle + j * 15f).toDouble())
-                    // If exactly at 0 or 45, it separates main directions, so draw all the way to innerHole. 
-                    // Otherwise it separates blocks inside a direction, so draw to r1 (Middle layer bottom).
                     val rStart = if (j == 0 || j == 3) innerHoleRadius else r1
                     val ex = centerX + cos(angleRad).toFloat() * baseRadius
                     val ey = centerY + sin(angleRad).toFloat() * baseRadius
                     val sx = centerX + cos(angleRad).toFloat() * rStart
                     val sy = centerY + sin(angleRad).toFloat() * rStart
-                    canvas.drawLine(sx, sy, ex, ey, segmentLinePaint)
+                    
+                    // If it is the boundary between the 8 main sets, use the white mainDirectionLinePaint
+                    if (j == 0 || j == 3) {
+                        // Calculate if EITHER side of this line is active
+                        // j=0 is boundary with previous slice. j=3 is boundary with next slice.
+                        val prevIdx = if (i == 0) 7 else i - 1
+                        val nextIdx = if (i == 7) 0 else i + 1
+                        val adjacentDir = if (j == 0) directions[prevIdx] else directions[nextIdx]
+                        
+                        val isLineActive = (dir == activeDirection || adjacentDir == activeDirection)
+                        val lineAlpha = if (activeDirection != Direction.NONE && !isLineActive) 60 else 255
+                        
+                        mainDirectionLinePaint.alpha = lineAlpha
+                        canvas.drawLine(sx, sy, ex, ey, mainDirectionLinePaint)
+                    } else {
+                        val lineAlpha = if (activeDirection != Direction.NONE && dir != activeDirection) 60 else 255
+                        segmentLinePaint.alpha = lineAlpha
+                        canvas.drawLine(sx, sy, ex, ey, segmentLinePaint) // Black line inside the set
+                    }
                 }
                 
                 // Inner Layer radial separator (at 22.5 degrees)
@@ -220,12 +255,25 @@ class JoystickView @JvmOverloads constructor(
                 val sy2 = centerY + sin(angleRad2).toFloat() * innerHoleRadius
                 val ex2 = centerX + cos(angleRad2).toFloat() * r1
                 val ey2 = centerY + sin(angleRad2).toFloat() * r1
+                val lineAlpha2 = if (activeDirection != Direction.NONE && dir != activeDirection) 60 else 255
+                segmentLinePaint.alpha = lineAlpha2
                 canvas.drawLine(sx2, sy2, ex2, ey2, segmentLinePaint)
             }
             
-            // 7. Draw outer golden border & inner base limit
-            canvas.drawCircle(centerX, centerY, baseRadius, borderPaint)
-            canvas.drawCircle(centerX, centerY, innerHoleRadius, segmentLinePaint)
+            // 7. Draw outer white border & inner base limit per slice for selective alpha
+            val rectFInnerHole = RectF(centerX - innerHoleRadius, centerY - innerHoleRadius, centerX + innerHoleRadius, centerY + innerHoleRadius)
+            for (i in 0 until 8) {
+                val startAngle = -22.5f + i * 45f
+                val dir = directions[i]
+                val isActive = (dir == activeDirection && activeDirection != Direction.NONE)
+                val lineAlpha = if (activeDirection != Direction.NONE && !isActive) 60 else 255
+
+                borderPaint.alpha = lineAlpha
+                canvas.drawArc(rectFOuter, startAngle, 45f, false, borderPaint)
+
+                mainDirectionLinePaint.alpha = lineAlpha
+                canvas.drawArc(rectFInnerHole, startAngle, 45f, false, mainDirectionLinePaint)
+            }
 
             // 8. Draw Characters
             for (i in 0 until 8) {
@@ -233,7 +281,7 @@ class JoystickView @JvmOverloads constructor(
                 val startAngle = -22.5f + i * 45f
                 val chars = leftChars[dir] ?: emptyList()
                 val isActive = (dir == activeDirection && activeDirection != Direction.NONE)
-                val alphaVal = if (activeDirection != Direction.NONE && !isActive) 100 else 255
+                val alphaVal = if (activeDirection != Direction.NONE && !isActive) 60 else 255
                 
                 // Outer Text
                 for(j in 0 until 3) {
@@ -272,9 +320,9 @@ class JoystickView @JvmOverloads constructor(
     }
 
     private fun drawCharText(canvas: Canvas, charStr: String, colorHex: String, radiusPos: Float, angleRad: Double, alphaVal: Int) {
+        // We must re-apply color each time because alpha modifier applies specifically to the color
+        charTextPaint.color = Color.WHITE 
         charTextPaint.alpha = alphaVal
-        // Make text black if on Yellow block, otherwise white
-        charTextPaint.color = if (colorHex.equals("#FBC02D", ignoreCase = true)) Color.BLACK else Color.WHITE 
         
         val charX = centerX + cos(angleRad).toFloat() * radiusPos
         val charY = centerY + sin(angleRad).toFloat() * radiusPos - (charTextPaint.descent() + charTextPaint.ascent()) / 2f
@@ -333,5 +381,13 @@ class JoystickView @JvmOverloads constructor(
             previewText = text
             invalidate()
         }
+    }
+
+    private fun darkenColor(color: Int, factor: Float): Int {
+        val a = Color.alpha(color)
+        val r = (Color.red(color) * factor).toInt().coerceIn(0, 255)
+        val g = (Color.green(color) * factor).toInt().coerceIn(0, 255)
+        val b = (Color.blue(color) * factor).toInt().coerceIn(0, 255)
+        return Color.argb(a, r, g, b)
     }
 }
