@@ -1,6 +1,8 @@
 package com.vatoo.erick
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -29,6 +31,8 @@ class JoystickView @JvmOverloads constructor(
     private var thumbRadius = 0f
     private var thumbX = 0f
     private var thumbY = 0f
+    
+    private var rightIconBitmap: Bitmap? = null
 
     var activeDirection: Direction = Direction.NONE
         private set
@@ -120,6 +124,23 @@ class JoystickView @JvmOverloads constructor(
         centerY = h / 2f
         baseRadius = (Math.min(w, h) / 2f) * 0.90f
         thumbRadius = baseRadius * 0.22f
+        
+        // Load and pre-scale the right dial icon (capslock)
+        // Android collapses subfolders in res/drawable/ into the main drawable namespace during packaging.
+        // So 'Key_icons/capslock.png' is just accessed as 'capslock' in the 'drawable' defType.
+        val iconResId = context.resources.getIdentifier("capslock", "drawable", context.packageName)
+        if (iconResId != 0) {
+            val originalBitmap = BitmapFactory.decodeResource(context.resources, iconResId)
+            if (originalBitmap != null) {
+                // Scale it to fit nicely inside the slice segment.
+                // Scaled down 20% by user request (0.35 -> 0.28)
+                val iconSize = (baseRadius * 0.28f).toInt()
+                if (iconSize > 0) {
+                    rightIconBitmap = Bitmap.createScaledBitmap(originalBitmap, iconSize, iconSize, true)
+                }
+            }
+        }
+        
         resetThumb()
     }
 
@@ -144,6 +165,20 @@ class JoystickView @JvmOverloads constructor(
                 
                 rightSegmentLinePaint.alpha = if (activeDirection != Direction.NONE && !isActive) 60 else 255
                 canvas.drawArc(rectF, startAngle, sweepAngle, true, rightSegmentLinePaint) // Use white lines for right joystick
+                
+                // Draw the icon in the center of the segment
+                rightIconBitmap?.let { bmp ->
+                    // Find the graphical center of the slice (e.g. at 65% of the radius outwards)
+                    val iconCenterRadius = baseRadius * 0.65f
+                    val angleRad = Math.toRadians((startAngle + sweepAngle / 2f).toDouble())
+                    val iconX = centerX + cos(angleRad).toFloat() * iconCenterRadius
+                    val iconY = centerY + sin(angleRad).toFloat() * iconCenterRadius
+                    
+                    val paintAlpha = if (activeDirection != Direction.NONE && !isActive) 60 else 255
+                    val iconPaint = Paint().apply { alpha = paintAlpha }
+                    
+                    canvas.drawBitmap(bmp, iconX - bmp.width / 2f, iconY - bmp.height / 2f, iconPaint)
+                }
             }
         } else {
             // Left Dial: 3 Concentric Layers with discrete blocks
