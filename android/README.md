@@ -6,6 +6,19 @@ This folder contains the Android implementation of ERICK (Ergonomic Radial Inclu
 
 ERICK Android is a custom Input Method Editor (IME) that enables chord-based text input using touch joysticks. The app uses Kotlin Multiplatform to share keyboard logic with the iOS implementation.
 
+## Features
+
+- **Chorded Keyboard Input**: Two virtual joysticks for chord-based text entry
+- **Multiple Layouts**:
+  - **Logical (A–Z)**: Alphabetically organized, easy to learn
+  - **Efficiency**: Optimized for English letter frequency
+- **Accessibility Options**:
+  - **Colorblind Mode**: Adjusted color scheme for color vision deficiency
+  - **Left-Handed Mode**: Swaps left/right dial roles (letter groups ↔ position selection)
+- **Single-Swipe Utilities**: Space, Enter, Backspace, Shift, Caps Lock via single-joystick gestures
+- **Dark Theme**: System-integrated dark mode support
+- **Guided Onboarding**: Step-by-step IME setup flow
+
 ## Setup
 
 ### Requirements
@@ -32,18 +45,19 @@ android/
 │   │   ├── MainActivity.kt   # Onboarding and IME setup UI
 │   │   ├── MyInputMethodService.kt  # IME service implementation
 │   │   ├── JoystickView.kt   # Custom touch joystick view
-│   │   ├── SettingsActivity.kt      # Settings UI
+│   │   ├── SettingsActivity.kt      # Settings UI host
 │   │   ├── SettingsScreen.kt        # Compose settings screen
 │   │   ├── SettingsViewModel.kt     # Settings state management
-│   │   └── LayoutPreferences.kt     # DataStore preferences
+│   │   ├── PreferencesManager.kt    # DataStore preferences
+│   │   └── LayoutPreferences.kt     # Layout-specific preferences
 │   └── build.gradle.kts      # App module configuration
 ├── shared/                   # Kotlin Multiplatform module
 │   ├── commonMain/           # Shared keyboard logic
 │   │   ├── KeyboardStateMachine.kt  # State machine for chords
-│   │   ├── KeyboardLogic.kt         # Chord processing logic
+│   │   ├── KeyboardLogic.kt         # Chord processing & layouts
 │   │   └── KeyboardContracts.kt     # Interfaces and contracts
 │   ├── androidMain/          # Android platform code
-│   └── iosMain/              # iOS platform code (for future)
+│   └── iosMain/              # iOS platform code
 ├── gradle/                   # Gradle wrapper files
 ├── build.gradle.kts          # Root build configuration
 ├── settings.gradle.kts       # Project settings
@@ -53,24 +67,22 @@ android/
 ## Key Components
 
 ### Input Method Editor (IME)
-- **MyInputMethodService**: Main IME service that handles keyboard lifecycle
-- **JoystickView**: Custom view for rendering and handling touch-based joystick input
-- **KeyboardStateMachine** (shared): Processes joystick movements into chords and characters
+- **MyInputMethodService**: Main IME service that handles keyboard lifecycle and integrates with the shared `KeyboardStateMachine`
+- **JoystickView**: Custom view for rendering and handling touch-based joystick input with visual feedback
 
 ### Settings & Preferences
 - **SettingsActivity/Screen**: Jetpack Compose UI for configuration
-- **LayoutPreferences**: DataStore-based persistence for:
-  - Keyboard layout (Efficient, Accessible, Legacy)
-  - Theme (Light, Dark, System)
-  - Colorblind mode
-  - Left-handed mode
+- **PreferencesManager**: DataStore-based persistence for:
+  - `layoutType`: "logical" or "efficiency"
+  - `darkTheme`: Boolean
+  - `colorblindMode`: Boolean
+  - `leftHandedMode`: Boolean
 
 ### Shared Module (KMP)
-The `shared` module contains platform-agnostic keyboard logic that will be reused in the iOS app:
-- Chord state machine
-- Input processing algorithms
-- Keyboard layout definitions
-- Character mapping logic
+The `shared` module contains platform-agnostic keyboard logic reused in the iOS app:
+- **KeyboardStateMachine**: Tracks joystick states and fires chords/single-swipes
+- **KeyboardLogic**: Direction mapping, chord-to-character resolution, layout definitions
+- **KeyboardContracts**: `KeyboardActionDelegate` interface, `Direction`, `KeyboardMode`, `LayoutType` enums
 
 ## Building
 
@@ -101,17 +113,22 @@ The `shared` module contains platform-agnostic keyboard logic that will be reuse
    - Enable ERICK in system settings
    - Select ERICK as current keyboard
 3. Open any text input field (e.g., Messages, Notes)
-4. Use the touch joysticks to input text via chord combinations
+4. Use the touch joysticks to input text via chord combinations:
+   - **Left joystick**: Select letter group (direction)
+   - **Right joystick**: Select position within group (color)
+   - **Single swipe (right only)**: Utility keys (Space, Enter, Backspace, etc.)
 
 ## Architecture Notes
 
 **State Management**: The keyboard uses a state machine pattern to track joystick movements and determine when a complete chord is formed.
 
-**Multiplatform Strategy**: Core logic lives in `shared/commonMain` and is compiled to native code for Android (JVM) and iOS (native).
+**Multiplatform Strategy**: Core logic lives in `shared/commonMain` and is compiled to native code for Android (JVM) and iOS (native framework).
 
-**UI Framework**: Modern Android UI built with Jetpack Compose; legacy keyboard layouts use XML.
+**UI Framework**: Modern Android UI built with Jetpack Compose; keyboard layout uses XML.
 
 **Persistence**: Settings use Jetpack DataStore (Preferences) for type-safe, async storage.
+
+**Left-Handed Mode**: When enabled, the state machine swaps dial roles — left dial handles position selection, right dial handles letter groups, and single-swipe utilities fire from the left dial.
 
 ## Troubleshooting
 

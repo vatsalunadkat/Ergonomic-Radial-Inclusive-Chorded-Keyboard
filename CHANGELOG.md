@@ -5,7 +5,49 @@ All notable changes to the ERICK (Ergonomic Radial Inclusive Controller Keyboard
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.1-alpha] - 2026-03-XX
+## [0.3.0-alpha] - 2026-03-13
+
+### Added
+- **Left-Handed Mode**: Swaps the roles of left and right dials
+  - Normal: Left dial = letter groups, Right dial = position
+  - Left-handed: Left dial = position, Right dial = letter groups
+  - Single-swipe utilities fire from left dial in left-handed mode
+  - Runtime toggleable without restart
+- **Efficiency Layout**: New keyboard layout optimized for English letter frequency
+  - Common letters (e, t, a, o, i, n) on easiest chord positions
+  - Based on research optimization algorithms
+- **iOS Keyboard Extension**: Fully functional custom keyboard for iOS
+  - SwiftUI-based JoystickView with spring animations
+  - Integration with SharedKeyboard.xcframework (KMP)
+  - Globe button for keyboard switching (Apple requirement)
+  - Settings accessible from keyboard surface
+- **iOS Onboarding Flow**: Guided setup UI for enabling keyboard extension
+- **iOS Settings Screen**: Configuration for layout, theme, and accessibility
+- **App Group Support (iOS)**: Shared preferences between app and keyboard extension
+- **Demo Assets**: Added typing demo GIFs and onboarding flow recordings
+
+### Changed
+- **Shared Module**: Updated `KeyboardStateMachine` with left-handed mode support
+  - Added `setLeftHandedMode()` and `isLeftHandedMode()` methods
+  - Modified `fireChord()` and `getPreviewText()` to swap dial roles
+  - Modified `handleTouch()` to fire single-swipes from correct dial
+- **Android Settings**: Enhanced settings screen with new accessibility options
+- **Documentation**: Reorganized demo files into `documentation/demo files/` folder
+
+### Technical Details
+- **Shared Module Changes**:
+  - `KeyboardStateMachine.kt`: Added `isLeftHandedMode` state variable
+  - `KeyboardLogic.kt`: Already supports both Logical and Efficiency layouts
+- **Android Changes**:
+  - `MyInputMethodService.kt`: Observes `leftHandedMode` preference
+  - `PreferencesManager.kt`: Already had left-handed mode support
+  - `SettingsScreen.kt`: Already had left-handed mode toggle
+- **iOS Implementation**:
+  - `KeyboardViewController.swift`: Full IME integration
+  - `JoystickView.swift`: SwiftUI joystick with drag gesture
+  - `SettingsView.swift`: App Group UserDefaults storage
+
+## [0.2.1-alpha] - 2026-03-08
 
 ### Added
 - **Kotlin Multiplatform (KMP) Shared Module**: Core keyboard logic now shared between Android and iOS
@@ -14,8 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `KeyboardContracts`: Platform-agnostic interfaces and contracts
 - **JoystickView**: Custom Android view for touch-based joystick input with visual feedback
 - **Settings UI**: Jetpack Compose-based settings screen with preferences for:
-  - Keyboard layout selection (Efficient, Accessible, Legacy)
-  - Theme options (Light, Dark, System Default)
+  - Keyboard layout selection (Logical, Efficiency)
+  - Theme options (Dark mode toggle)
   - Colorblind mode
   - Left-handed mode
 - **DataStore Integration**: Type-safe, async preferences storage replacing SharedPreferences
@@ -26,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Repository Structure**: Reorganized project into platform-specific folders
   - Moved Android app to `android/` directory
-  - Created `ios/` directory for future iOS development
+  - Created `ios/` directory for iOS development
   - Separated documentation into `documentation/` folder
 - **IME Service**: Refactored `MyInputMethodService` to use shared `KeyboardStateMachine`
 - **MainActivity**: Enhanced with Compose UI and IME status checking
@@ -74,15 +116,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Upcoming in Future Releases
 
-### [Planned for 0.3.0]
-- iOS keyboard extension (using shared KMP module)
-- Physical controller support (gamepad input)
-- Enhanced settings with haptic feedback options
-
 ### [Planned for 0.4.0]
-- Word prediction and autocorrect
+- Physical controller support (gamepad input)
+- Enhanced haptic feedback options
 - Typing speed analytics
+
+### [Planned for 0.5.0]
+- Word prediction and autocorrect
 - Tutorial/learning game mode
+- Custom chord mapping
 
 ### [Planned for 1.0.0]
 - Production-ready stability

@@ -44,6 +44,13 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
                 stateMachine.setLayoutType(layoutType)
             }
         }
+
+        // Observe left-handed mode preference and push changes into the state machine
+        serviceScope.launch {
+            preferencesManager.leftHandedMode.collect { enabled ->
+                stateMachine.setLeftHandedMode(enabled)
+            }
+        }
     }
 
     override fun onDestroy() {

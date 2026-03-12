@@ -14,9 +14,13 @@ class KeyboardStateMachine(
     private var rightActiveDir = Direction.NONE
     private var currentMode = KeyboardMode.NORMAL
     private var isChordExecuted = false
+    private var isLeftHandedMode = false
 
     fun setLayoutType(type: LayoutType) { currentLayoutType = type }
     fun getLayoutType(): LayoutType = currentLayoutType
+
+    fun setLeftHandedMode(enabled: Boolean) { isLeftHandedMode = enabled }
+    fun isLeftHandedMode(): Boolean = isLeftHandedMode
 
     fun handleTouch(x: Float, y: Float, isLeft: Boolean, actionDownOrMove: Boolean, actionUp: Boolean) {
         val distance = hypot(x.toDouble(), y.toDouble()).toFloat()
@@ -32,13 +36,17 @@ class KeyboardStateMachine(
             if (isLeft) {
                 if (rightActiveDir != Direction.NONE && !isChordExecuted) {
                     fireChord(leftActiveDir, rightActiveDir)
+                } else if (isLeftHandedMode && rightActiveDir == Direction.NONE && !isChordExecuted) {
+                    // Left-handed mode: single-swipe from LEFT dial
+                    handleSingleSwipe(leftActiveDir)
                 }
                 leftActiveDir = Direction.NONE
             } else {
                 if (leftActiveDir != Direction.NONE && !isChordExecuted) {
                     fireChord(leftActiveDir, rightActiveDir)
-                } else if (leftActiveDir == Direction.NONE && !isChordExecuted) {
-                    handleRightOnlySwipe(rightActiveDir)
+                } else if (!isLeftHandedMode && leftActiveDir == Direction.NONE && !isChordExecuted) {
+                    // Normal mode: single-swipe from RIGHT dial
+                    handleSingleSwipe(rightActiveDir)
                 }
                 rightActiveDir = Direction.NONE
             }
@@ -51,7 +59,12 @@ class KeyboardStateMachine(
 
     fun getPreviewText(): String {
         return if (leftActiveDir != Direction.NONE && rightActiveDir != Direction.NONE) {
-            processor.getChordResult(leftActiveDir, rightActiveDir, currentMode, currentLayoutType)
+            // In left-handed mode, swap the dial roles for chord lookup
+            if (isLeftHandedMode) {
+                processor.getChordResult(rightActiveDir, leftActiveDir, currentMode, currentLayoutType)
+            } else {
+                processor.getChordResult(leftActiveDir, rightActiveDir, currentMode, currentLayoutType)
+            }
         } else {
             ""
         }
@@ -61,7 +74,12 @@ class KeyboardStateMachine(
         if (left == Direction.NONE || right == Direction.NONE) return
         isChordExecuted = true
 
-        val text = processor.getChordResult(left, right, currentMode, currentLayoutType)
+        // In left-handed mode, swap the dial roles for chord lookup
+        val text = if (isLeftHandedMode) {
+            processor.getChordResult(right, left, currentMode, currentLayoutType)
+        } else {
+            processor.getChordResult(left, right, currentMode, currentLayoutType)
+        }
         if (text.isNotEmpty()) {
             delegate.commitText(text)
         }
@@ -71,7 +89,7 @@ class KeyboardStateMachine(
         }
     }
 
-    private fun handleRightOnlySwipe(dir: Direction) {
+    private fun handleSingleSwipe(dir: Direction) {
         if (dir == Direction.NONE) return
         executeSingleSwipe(dir)
     }

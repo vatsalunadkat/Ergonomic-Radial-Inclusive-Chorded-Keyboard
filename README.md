@@ -2,18 +2,19 @@
 
 <!-- PROJECT LOGO -->
 <div align="center">
+  <img src="documentation/logo/ERICK_black.png" alt="ERICK Logo" width="200">
   <h3 align="center">Ergonomic Radial Inclusive Controller Keyboard (ERICK)</h3>
-  <p align="center"><strong>Version 0.2.1-alpha</strong></p>
+  <p align="center"><strong>Version 0.3.0-alpha</strong></p>
 
   <p align="center">
-    An ergonomic keyboard system for Android and iOS using swipe based chord input
+    An ergonomic keyboard system for Android and iOS using swipe-based chord input
     <br />
     <a href="documentation/APP_CONTEXT.md"><strong>📘 View Architecture & App Context »</strong></a>
     <br />
     <br />
     <a href="https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/issues">TODO - Visit App - Playstore Link</a>
     ·
-    <a href="https://youtu.be/rrk0dRZUqbY"> TODO - View Demo</a>
+    <a href="https://youtu.be/rrk0dRZUqbY">View Demo</a>
     ·
     <a href="https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/issues">Report Bug</a>
     ·
@@ -83,13 +84,15 @@ Input is provided through combinations of swipe inputs or joystick movements (ch
 
 ### Built With
 
-* [![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)](#) - Input Method Editor (IME) implementation
-* [![iOS](https://img.shields.io/badge/iOS-000000?logo=ios&logoColor=white)](#) - In development
+* [![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)](#) - Input Method Editor (IME)
+* [![iOS](https://img.shields.io/badge/iOS-000000?logo=ios&logoColor=white)](#) - Custom Keyboard Extension
 * [![Kotlin](https://img.shields.io/badge/Kotlin-%237F52FF.svg?logo=kotlin&logoColor=white)](#) - Primary language for Android & shared logic
+* [![Swift](https://img.shields.io/badge/Swift-F05138?logo=swift&logoColor=white)](#) - iOS native development
 * [![Kotlin Multiplatform](https://img.shields.io/badge/KMP-7F52FF?logo=kotlin&logoColor=white)](#) - Shared keyboard logic across platforms
 * [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)](#) - Modern Android UI
-* [![DataStore](https://img.shields.io/badge/DataStore-3DDC84?logo=android&logoColor=white)](#) - Preferences management
-* Deployed on [![Google Play Store](https://img.shields.io/badge/Google_Play-414141?logo=google-play&logoColor=white)](#) (Coming Soon) and [![App Store](https://img.shields.io/badge/App_Store-0D96F6?logo=app-store&logoColor=white)](#) (Planned)
+* [![SwiftUI](https://img.shields.io/badge/SwiftUI-0D96F6?logo=swift&logoColor=white)](#) - Modern iOS UI
+* [![DataStore](https://img.shields.io/badge/DataStore-3DDC84?logo=android&logoColor=white)](#) - Android preferences management
+* Deployed on [![Google Play Store](https://img.shields.io/badge/Google_Play-414141?logo=google-play&logoColor=white)](#) (Coming Soon) and [![App Store](https://img.shields.io/badge/App_Store-0D96F6?logo=app-store&logoColor=white)](#) (Coming Soon)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -100,30 +103,40 @@ This is a multi-platform project supporting both Android and iOS with shared bus
 
 ```
 ERICK/
-├── android/              # Android implementation
-│   ├── app/             # Android app module (IME service, UI, activities)
-│   ├── shared/          # Kotlin Multiplatform shared module
-│   │   ├── commonMain/  # Shared keyboard logic (KeyboardStateMachine, chord logic)
-│   │   ├── androidMain/ # Android-specific implementations
-│   │   └── iosMain/     # iOS-specific implementations (for future use)
-│   ├── gradle/          # Gradle configuration
-│   └── README.md        # Android setup instructions
-├── ios/                 # iOS implementation (in development)
-│   ├── .gitignore       # iOS-specific gitignore
-│   └── README.md        # iOS setup instructions
-├── documentation/       # Project documentation and research
-│   ├── Jira/           # Sprint planning and tickets
-│   ├── Research/        # Research papers and resources
-│   └── logo/           # Branding assets
-├── README.md            # This file
-└── LICENSE              # Project license
+├── android/                  # Android implementation
+│   ├── app/                  # Android app module (IME service, UI, activities)
+│   ├── shared/               # Kotlin Multiplatform shared module
+│   │   ├── commonMain/       # Shared keyboard logic (KeyboardStateMachine, chord logic)
+│   │   ├── androidMain/      # Android-specific implementations
+│   │   └── iosMain/          # iOS-specific implementations
+│   ├── gradle/               # Gradle configuration
+│   └── README.md             # Android setup instructions
+├── ios/                      # iOS implementation
+│   ├── ERICK/                # iOS main app target
+│   │   ├── ERICK/            # SwiftUI app (ContentView, Settings, Assets)
+│   │   ├── ErickKeyBoard/    # Custom keyboard extension
+│   │   │   ├── KeyboardViewController.swift
+│   │   │   ├── JoystickView.swift
+│   │   │   └── SettingsView.swift
+│   │   └── SharedKeyboard.xcframework/  # KMP compiled framework
+│   └── README.md             # iOS setup instructions
+├── documentation/            # Project documentation and research
+│   ├── APP_CONTEXT.md        # Architecture documentation
+│   ├── demo files/           # Demo GIFs and videos
+│   ├── Jira/                 # Sprint planning and tickets
+│   ├── Research/             # Research papers and layout optimization
+│   └── logo/                 # Branding assets
+├── README.md                 # This file
+├── CHANGELOG.md              # Version history
+└── LICENSE                   # Project license
 ```
 
 **Architecture Highlights:**
 - **Shared Module (KMP)**: Core keyboard logic (state machine, chord processing, contracts) shared between Android & iOS
 - **Android IME**: Custom Input Method Editor service with Jetpack Compose UI
-- **Settings & Preferences**: DataStore-based persistent configuration (layout, theme, accessibility options)
-- **Modern UI**: JoystickView for touch input, guided onboarding, settings screen
+- **iOS Keyboard Extension**: Custom keyboard with SwiftUI joystick views
+- **Settings & Preferences**: DataStore (Android) / App Group UserDefaults (iOS) for persistent configuration
+- **Modern UI**: JoystickView for touch input, guided onboarding, settings screen on both platforms
 
 **Getting Started:**
 - For Android development, see [android/README.md](android/README.md)
@@ -136,24 +149,40 @@ ERICK/
 
 ### Features
 
-**Current Implementation (v0.2.1-alpha):**
-- [x] Android Input Method Editor (IME) service
+**Current Implementation (v0.3.0-alpha):**
+
+**Android:**
+- [x] Input Method Editor (IME) service
 - [x] Touch-based joystick input with visual feedback
 - [x] Chorded keyboard logic with state machine architecture
 - [x] Guided onboarding UI (enable/select IME)
-- [x] Settings screen with multiple options:
-  - Layout selection (Efficient, Accessible, Legacy modes)
-  - Theme customization
+- [x] Settings screen with:
+  - Layout selection (Logical A–Z, Efficiency)
+  - Dark theme toggle
   - Colorblind mode
-  - Left-handed mode
+  - Left-handed mode (swaps dial roles)
 - [x] DataStore-based preferences persistence
 - [x] Kotlin Multiplatform shared module for cross-platform logic
-- [x] ERICK branding and logo integration
+
+**iOS:**
+- [x] Custom Keyboard Extension (fully functional)
+- [x] SwiftUI-based joystick views with spring animations
+- [x] SharedKeyboard.xcframework integration (KMP)
+- [x] Settings screen with layout, theme, and accessibility options
+- [x] App Group for shared preferences between app and extension
+- [x] Globe button for keyboard switching (Apple requirement)
+- [x] Onboarding flow with keyboard enable instructions
+
+**Shared Features (via Kotlin Multiplatform):**
+- [x] Cross-platform KeyboardStateMachine
+- [x] Logical layout (A–Z alphabetically organized)
+- [x] Efficiency layout (optimized for English letter frequency)
+- [x] Left-handed mode support (swaps left/right dial roles)
+- [x] Single-swipe utility gestures (Space, Enter, Backspace, Shift, Caps Lock)
 
 ### Future Scope
 
 **Planned Features:**
-- [ ] iOS keyboard extension implementation
 - [ ] Physical controller support (gamepad/joystick hardware)
 - [ ] Complex mode with trigger/button combinations for faster typing
 - [ ] Word prediction and autocorrect
@@ -162,6 +191,7 @@ ERICK/
 - [ ] Tutorial game mode for learning chord combinations
 - [ ] Multi-language support
 - [ ] Cloud sync for settings across devices
+- [ ] Play Store and App Store releases
 
 See the [open issues](https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/issues) for a full list of proposed features (and known issues).
 
@@ -172,21 +202,23 @@ See the [open issues](https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusiv
 <!-- OTHER ARTIFACTS -->
 ## Project Artifacts
 
+### Android Typing Demo (v0.2.1-alpha)
+<img src="documentation/demo%20files/v0.2.1a_typing_demo.gif" height="400" />
+
+### User Onboarding Flow
+<img src="documentation/demo%20files/v0.2.1a_user_onboarding.gif" height="400" />
+
 ### Swipe Typing
-<img src="https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/blob/main/documentation/swipe.gif" height="400" />
+<img src="documentation/demo%20files/swipe.gif" height="400" />
 
 ### Typing with Controller
-<img src="https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/blob/main/documentation/controller.gif" height="400" />
+<img src="documentation/demo%20files/controller.gif" height="400" />
 
 ### Keyboard Typing with No Fingers vs Typing with Controller
-<img src="https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/blob/main/documentation/no%20hands.gif" height="400" /> vs <img src="https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/blob/main/documentation/no%20hands%20type.gif" height="400" />
+<img src="documentation/demo%20files/no%20hands.gif" height="400" /> vs <img src="documentation/demo%20files/no%20hands%20type.gif" height="400" />
 
-### TODO Architecture Diagram
-<img src="https://github.com/vatsalunadkat/sleep-pattern-analysis/blob/e9c002705fff6561a0f68450b7da10759fb7592b/documentation/Images/architecture_diagram.png" height="300" />
-
-### Controller INPUT Data Calculations TODO
-TODO
-
+### Keyboard Layout Design
+<img src="documentation/Research/vatsal/layout_design/final_layout_with_keys.png" height="300" />
 
 <!-- CONTACT -->
 <!-- ## Contact
