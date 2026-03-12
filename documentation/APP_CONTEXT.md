@@ -1,12 +1,14 @@
 # ERICK - Application Context & Architecture
 
-**Version**: 0.2.1-alpha  
-**Last Updated**: March 8, 2026  
+**Version**: 0.3.0-alpha  
+**Last Updated**: March 13, 2026  
 **Project**: Ergonomic Radial Inclusive Controller Keyboard (ERICK)
 
 ## Executive Summary
 
-ERICK is a cross-platform chorded keyboard system that enables text input through dual joystick movements (touch or physical controller). The application uses Kotlin Multiplatform to share core keyboard logic between Android and iOS implementations, with Android currently featuring a fully functional Input Method Editor (IME) service.
+ERICK is a cross-platform chorded keyboard system that enables text input through dual joystick movements (touch or physical controller). The application uses Kotlin Multiplatform to share core keyboard logic between Android and iOS implementations. Both platforms feature fully functional keyboard implementations:
+- **Android**: Input Method Editor (IME) service with Jetpack Compose UI
+- **iOS**: Custom Keyboard Extension with SwiftUI interface
 
 ## Architecture Overview
 
@@ -17,9 +19,9 @@ ERICK is a cross-platform chorded keyboard system that enables text input throug
 │                 Platform Layer (UI/OS)                   │
 │  ┌─────────────────────┐      ┌─────────────────────┐  │
 │  │   Android IME       │      │   iOS Extension     │  │
-│  │  - Activities       │      │  (In Development)   │  │
-│  │  - IME Service      │      │                     │  │
-│  │  - Compose UI       │      │                     │  │
+│  │  - Activities       │      │  - Keyboard Ext.    │  │
+│  │  - IME Service      │      │  - SwiftUI Views    │  │
+│  │  - Compose UI       │      │  - App Group Prefs  │  │
 │  └──────────┬──────────┘      └──────────┬──────────┘  │
 └─────────────┼─────────────────────────────┼─────────────┘
               │                             │
@@ -60,9 +62,11 @@ ERICK is a cross-platform chorded keyboard system that enables text input throug
 - Android IME Framework - Custom keyboard implementation
 - Material Design 3 - UI components
 
-**iOS (Planned):**
-- Swift/Objective-C interop with KMP
+**iOS:**
+- Swift with KMP interop via XCFramework
+- SwiftUI for modern declarative UI
 - Custom Keyboard Extension
+- App Groups for shared preferences
 
 ## Core Components
 
@@ -112,6 +116,7 @@ Located in `android/app/src/main/java/com/vatoo/erick/`
 - Input view creation and management
 - Connection to text fields
 - Integration with KeyboardStateMachine
+- Observer pattern for preferences (layout type, left-handed mode)
 - Coroutine scope management for async operations
 
 **Key Features**:
@@ -119,16 +124,18 @@ Located in `android/app/src/main/java/com/vatoo/erick/`
 - Handles touch events from JoystickView
 - Dispatches characters to active input connections
 - Launches settings activity
+- Reacts to preference changes at runtime
 
 #### JoystickView
 **Purpose**: Custom Android View for rendering and handling touch-based joystick input.
 
 **Features**:
 - Circular touch area with visual feedback
-- Directional detection (8-way or 4-way)
+- 8-way directional detection
 - Return-to-center animation
 - Configurable sensitivity and dead zones
 - Real-time position tracking
+- Preview text display (right joystick)
 
 **Technical Details**:
 - Extends `View`
@@ -152,35 +159,87 @@ Located in `android/app/src/main/java/com/vatoo/erick/`
 **Purpose**: Configuration UI for keyboard preferences.
 
 **Settings Available**:
-- **Layout Mode**: Efficient, Accessible, Legacy
-- **Theme**: Light, Dark, System Default
+- **Layout Type**: Logical (A–Z), Efficiency
+- **Theme**: Dark mode toggle
 - **Accessibility**:
-  - Colorblind mode (adjust colors)
-  - Left-handed mode (mirror layout)
-- **Future**: Typing speed, haptic feedback, sound effects
+  - Colorblind mode
+  - Left-handed mode (swaps dial roles)
 
 **Technical Details**:
 - Built with Jetpack Compose
 - Material Design 3 components
-- Real-time preview of settings
 - Persists to DataStore
+- Changes apply at runtime without restart
 
-#### LayoutPreferences (DataStore)
+#### PreferencesManager (DataStore)
 **Purpose**: Type-safe, asynchronous persistence of user settings.
 
 **Stored Preferences**:
-- `selectedLayout: String`
-- `theme: String`
-- `colorblindMode: Boolean`
-- `leftHandedMode: Boolean`
+- `layout_type: String` ("logical" | "efficiency")
+- `dark_theme: Boolean`
+- `colorblind_mode: Boolean`
+- `left_handed_mode: Boolean`
 
 **Technical Approach**:
 - Uses Preferences DataStore (key-value)
 - Coroutine-based async reads/writes
 - Flow-based reactive updates
-- Migration support from SharedPreferences (if needed)
 
-### 3. Data Flow
+### 3. iOS Implementation
+
+Located in `ios/ERICK/`
+
+#### KeyboardViewController
+**Purpose**: iOS Custom Keyboard Extension controller that integrates with the iOS input system.
+
+**Responsibilities**:
+- Implements `KeyboardActionDelegate` from SharedKeyboard framework
+- Manages `KeyboardStateMachine` instance
+- Handles touch callbacks from SwiftUI joysticks
+- Commits text via `textDocumentProxy`
+- Updates preview text in ViewModel
+
+**Key Features**:
+- UIHostingController to embed SwiftUI views
+- Keyboard height constraint (280pt)
+- Globe button for keyboard switching (Apple requirement)
+- Settings button to configure preferences
+
+#### JoystickView (SwiftUI)
+**Purpose**: SwiftUI view for touch-based joystick input.
+
+**Features**:
+- Drag gesture with thumb clamping
+- Spring animation for return-to-center
+- Visual feedback with colors matching Android
+- Preview text display (right joystick)
+- Configurable for left/right side
+
+#### SettingsView
+**Purpose**: SwiftUI settings screen accessible from keyboard and main app.
+
+**Settings Available**:
+- Layout Type (Logical, Efficiency)
+- Dark Theme toggle
+- Colorblind Mode toggle
+- Left-Handed Mode toggle
+
+**Technical Details**:
+- Uses `@AppStorage` with App Group suite
+- Shared between main app and keyboard extension
+- Real-time updates via UserDefaults observers
+
+#### SharedKeyboard.xcframework
+**Purpose**: Pre-compiled Kotlin Multiplatform framework containing shared logic.
+
+**Contents**:
+- `KeyboardStateMachine`
+- `KeyboardLogic`
+- `KeyboardFactory`
+- `KeyboardActionDelegate` protocol
+- `Direction`, `KeyboardMode`, `LayoutType`, `InputAction` types
+
+### 4. Data Flow
 
 #### Input Flow (Touch to Character)
 
@@ -239,9 +298,22 @@ A "chord" is a combination of two joystick directions (left stick + right stick)
 
 ### Layout Modes
 
-1. **Efficient Mode**: Optimized for typing speed, common letters on easy chords
-2. **Accessible Mode**: Simplified layout for users with motor impairments
-3. **Legacy Mode**: Traditional layout similar to OrbiTouch keyboard
+1. **Logical Mode (A–Z)**: Characters organized alphabetically
+   - Easy to learn and memorize
+   - Groups: N=a-e, NE=f-j, E=k-o, SE=p-t, S=u-y, SW=z/symbols, W=1-5, NW=6-0
+
+2. **Efficiency Mode**: Optimized for English letter frequency
+   - Most common letters on easiest chords
+   - Groups: E=e,h,t,r,m, S=a,d,o,l,w, N=i,c,n,u,f, etc.
+   - Based on research optimization for typing speed
+
+### Left-Handed Mode
+
+When enabled, the roles of the two dials are swapped:
+- **Normal Mode**: Left dial = letter groups (direction), Right dial = color/position
+- **Left-Handed Mode**: Left dial = color/position, Right dial = letter groups (direction)
+- Single-swipe utility functions (Space, Enter, Backspace) move to the LEFT dial
+- Chord output remains identical (same chord = same character)
 
 ### State Machine Logic
 
@@ -263,20 +335,31 @@ The state machine prevents accidental inputs and ensures proper chord completion
 
 ## Configuration and Preferences
 
-### DataStore Schema (Preferences)
+### Android DataStore Schema
 
 ```kotlin
-// Key definitions
-private val LAYOUT_KEY = stringPreferencesKey("selected_layout")
-private val THEME_KEY = stringPreferencesKey("theme")
-private val COLORBLIND_KEY = booleanPreferencesKey("colorblind_mode")
-private val LEFT_HANDED_KEY = booleanPreferencesKey("left_handed_mode")
+// Key definitions (PreferencesManager.kt)
+private val LAYOUT_TYPE_KEY = stringPreferencesKey("layout_type")
+private val DARK_THEME_KEY = booleanPreferencesKey("dark_theme")
+private val COLORBLIND_MODE_KEY = booleanPreferencesKey("colorblind_mode")
+private val LEFT_HANDED_MODE_KEY = booleanPreferencesKey("left_handed_mode")
 
 // Default values
-selectedLayout: "efficient"
-theme: "system"
+layoutType: "logical"
+darkTheme: false
 colorblindMode: false
 leftHandedMode: false
+```
+
+### iOS App Group UserDefaults
+
+```swift
+// App Group: group.com.vatoo.erick
+// Keys (SettingsView.swift)
+@AppStorage("layout_type") var layoutType: String = "logical"
+@AppStorage("dark_theme") var darkTheme: Bool = false
+@AppStorage("colorblind_mode") var colorblindMode: Bool = false
+@AppStorage("left_handed_mode") var leftHandedMode: Bool = false
 ```
 
 ### Build Configuration
@@ -314,11 +397,18 @@ leftHandedMode: false
 
 ### Version History
 
-- **v0.2.1-alpha** (Current):
+- **v0.3.0-alpha** (Current):
+  - iOS keyboard extension fully implemented
+  - Efficiency layout (optimized for English frequency)
+  - Left-handed mode (swaps dial roles)
+  - Onboarding flow for both platforms
+  - Settings sync via App Group (iOS)
+
+- **v0.2.1-alpha**:
   - Kotlin Multiplatform shared module
   - Settings UI with DataStore
   - JoystickView touch input
-  - Onboarding flow
+  - Onboarding flow (Android)
   - ERICK logo and branding
 
 - **v0.1.x**:
@@ -327,11 +417,6 @@ leftHandedMode: false
   - Simple touch input
 
 ## Future Architecture Considerations
-
-### iOS Integration
-- XCFramework built from shared module
-- Swift code will import `SharedKeyboard` framework
-- Custom Keyboard Extension will call KMP APIs
 
 ### Physical Controller Support
 - Detect gamepad connection (Android: InputManager, iOS: GCController)
@@ -356,21 +441,31 @@ leftHandedMode: false
 - `android/app/build.gradle.kts` - App module build config
 - `android/shared/build.gradle.kts` - KMP shared module config
 - `android/settings.gradle.kts` - Module declarations
+- `ios/ERICK/ERICK.xcodeproj/project.pbxproj` - Xcode project config
 
-### Source Files
+### Android Source Files
 - `android/shared/src/commonMain/kotlin/KeyboardStateMachine.kt` - Core state logic
-- `android/shared/src/commonMain/kotlin/KeyboardLogic.kt` - Chord mapping
+- `android/shared/src/commonMain/kotlin/KeyboardLogic.kt` - Chord mapping & layouts
+- `android/shared/src/commonMain/kotlin/KeyboardContracts.kt` - Interfaces and types
 - `android/app/src/main/java/com/vatoo/erick/MyInputMethodService.kt` - IME service
 - `android/app/src/main/java/com/vatoo/erick/JoystickView.kt` - Touch input view
 - `android/app/src/main/java/com/vatoo/erick/MainActivity.kt` - Onboarding UI
-- `android/app/src/main/java/com/vatoo/erick/SettingsActivity.kt` - Settings UI
-- `android/app/src/main/java/com/vatoo/erick/LayoutPreferences.kt` - DataStore wrapper
+- `android/app/src/main/java/com/vatoo/erick/SettingsScreen.kt` - Settings UI
+- `android/app/src/main/java/com/vatoo/erick/PreferencesManager.kt` - DataStore wrapper
+
+### iOS Source Files
+- `ios/ERICK/ErickKeyBoard/KeyboardViewController.swift` - Keyboard extension controller
+- `ios/ERICK/ErickKeyBoard/JoystickView.swift` - SwiftUI joystick
+- `ios/ERICK/ErickKeyBoard/SettingsView.swift` - In-keyboard settings
+- `ios/ERICK/ERICK/ContentView.swift` - Main app onboarding
+- `ios/ERICK/ERICK/SettingsView.swift` - Main app settings
+- `ios/ERICK/SharedKeyboard.xcframework/` - KMP compiled framework
 
 ### Resource Files
 - `android/app/src/main/res/xml/method.xml` - IME metadata
 - `android/app/src/main/res/layout/keyboard_simple.xml` - Keyboard layout
-- `android/app/src/main/res/drawable/erick_logo.png` - App logo
 - `android/app/src/main/res/values/strings.xml` - String resources
+- `ios/ERICK/ErickKeyBoard/Info.plist` - Keyboard extension config
 
 ## Troubleshooting & Common Issues
 
