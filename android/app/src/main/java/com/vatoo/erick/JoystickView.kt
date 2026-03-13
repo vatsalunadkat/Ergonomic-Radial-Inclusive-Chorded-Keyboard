@@ -118,27 +118,26 @@ class JoystickView @JvmOverloads constructor(
         typeface = Typeface.DEFAULT
     }
 
-    //'?' is only a placeholder
     private val leftCharsNormal = mapOf(
-        Direction.N to listOf("a", "b", "c", "d", "e", "?", "?", "'"),
-        Direction.NE to listOf("f", "g", "h", "i", "j", "?", "?", "/"),
-        Direction.E to listOf("k", "l", "m", "n", "o", "?", "?", ";"),
-        Direction.SE to listOf("p", "q", "r", "s", "t", "?", "?", "-"),
-        Direction.S to listOf("u", "v", "w", "x", "y", "?", "?", "="),
-        Direction.SW to listOf("z", "\\", "[", "]", "`", "?", "?", "?"),
-        Direction.W to listOf("1", "2", "3", "4", "5", "?", "?", "?"),
-        Direction.NW to listOf("6", "7", "8", "9", "0", "?", "?", "?")
+        Direction.N to listOf("a", "b", "c", "d", "e", "", "", "'"),
+        Direction.NE to listOf("f", "g", "h", "i", "j", "", "", "/"),
+        Direction.E to listOf("k", "l", "m", "n", "o", "", "", ";"),
+        Direction.SE to listOf("p", "q", "r", "s", "t", "", "", "-"),
+        Direction.S to listOf("u", "v", "w", "x", "y", "", "", "="),
+        Direction.SW to listOf("z", "\\", "[", "]", "`", "", "", ""),
+        Direction.W to listOf("1", "2", "3", "4", "5", "", "", ""),
+        Direction.NW to listOf("6", "7", "8", "9", "0", "", "", "")
     )
 
     private val leftCharsShifted = mapOf(
-        Direction.N to listOf("A", "B", "C", "D", "E", "?", "?", "\""),
-        Direction.NE to listOf("F", "G", "H", "I", "J", "?", "?", "?"),
-        Direction.E to listOf("K", "L", "M", "N", "O", "?", "?", ":"),
-        Direction.SE to listOf("P", "Q", "R", "S", "T", "?", "?", "_"),
-        Direction.S to listOf("U", "V", "W", "X", "Y", "?", "?", "+"),
-        Direction.SW to listOf("Z", "|", "{", "}", "~", "?", "?", "?"),
-        Direction.W to listOf("!", "@", "#", "$", "%", "?", "?", "?"),
-        Direction.NW to listOf("^", "&", "*", "(", ")", "?", "?", "?")
+        Direction.N to listOf("A", "B", "C", "D", "E", "", "", "\""),
+        Direction.NE to listOf("F", "G", "H", "I", "J", "", "", "?"),
+        Direction.E to listOf("K", "L", "M", "N", "O", "", "", ":"),
+        Direction.SE to listOf("P", "Q", "R", "S", "T", "", "", "_"),
+        Direction.S to listOf("U", "V", "W", "X", "Y", "", "", "+"),
+        Direction.SW to listOf("Z", "|", "{", "}", "~", "", "", ""),
+        Direction.W to listOf("!", "@", "#", "$", "%", "", "", ""),
+        Direction.NW to listOf("^", "&", "*", "(", ")", "", "", "")
     )
     
     private val rightDirs = listOf(
@@ -198,27 +197,19 @@ class JoystickView @JvmOverloads constructor(
                 
                 // Content area center
                 val angleRad = Math.toRadians((startAngle + sweepAngle / 2f).toDouble())
-                val contentCenterRadius = baseRadius * 0.62f
+                val contentCenterRadius = baseRadius * 0.66f
                 
                 val contentCenterX = centerX + cos(angleRad).toFloat() * contentCenterRadius
                 val contentCenterY = centerY + sin(angleRad).toFloat() * contentCenterRadius
                 
-                // Vertical layout: Icon on top, Text below
-                val iconSize = baseRadius * 0.12f
-                val spacing = 8f
-                
-                // Draw Icon (shifted up)
-                if (iconName.isNotEmpty()) {
-                    val iconY = contentCenterY - (iconSize / 2f)
-                    drawProgrammaticIcon(canvas, iconName, contentCenterX, iconY, iconSize, paintAlpha)
-                }
-                
-                // Draw Label (shifted down)
-                if (label.isNotEmpty()) {
-                    val labelY = contentCenterY + (iconSize / 2f) + spacing - (labelTextPaint.descent() + labelTextPaint.ascent()) / 2f
-                    labelTextPaint.alpha = paintAlpha
-                    canvas.drawText(label, contentCenterX, labelY, labelTextPaint)
-                }
+                drawRightDialContent(
+                    canvas = canvas,
+                    iconName = iconName,
+                    label = label,
+                    centerX = contentCenterX,
+                    centerY = contentCenterY,
+                    alpha = paintAlpha
+                )
             }
         } else {
             // Left Dial: 3 Concentric Layers with discrete blocks
@@ -362,30 +353,44 @@ class JoystickView @JvmOverloads constructor(
                 // Outer Text
                 for(j in 0 until 3) {
                     val c = chars.getOrNull(j) ?: continue
-                    if (c == "*" || c == "?") continue
-                    val colorHex = ColorPalettes.getColorForDirectionHex(rightDirs[j])
-                    val centerRad = (baseRadius + r2) / 2f
-                    val angleRad = Math.toRadians((startAngle + j * 15f + 7.5f).toDouble())
-                    drawCharText(canvas, c, colorHex, centerRad, angleRad, alphaVal)
+                    if (c.isBlank()) continue
+                    drawCharText(
+                        canvas = canvas,
+                        charStr = c,
+                        ringInnerRadius = r2,
+                        ringOuterRadius = baseRadius,
+                        startAngle = startAngle + j * 15f,
+                        sweepAngle = 15f,
+                        alphaVal = alphaVal
+                    )
                 }
                 // Middle Text
                 for(j in 0 until 3) {
                     val c = chars.getOrNull(3 + j) ?: continue
-                    if (c == "*" || c == "?") continue
-                    val colorHex = ColorPalettes.getColorForDirectionHex(rightDirs[3 + j])
-                    val centerRad = (r2 + r1) / 2f
-                    val angleRad = Math.toRadians((startAngle + j * 15f + 7.5f).toDouble())
-                    drawCharText(canvas, c, colorHex, centerRad, angleRad, alphaVal)
+                    if (c.isBlank()) continue
+                    drawCharText(
+                        canvas = canvas,
+                        charStr = c,
+                        ringInnerRadius = r1,
+                        ringOuterRadius = r2,
+                        startAngle = startAngle + j * 15f,
+                        sweepAngle = 15f,
+                        alphaVal = alphaVal
+                    )
                 }
                 // Inner Text
                 for(j in 0 until 2) {
                     val c = chars.getOrNull(6 + j) ?: continue
-                    if (c == "*" || c == "?") continue
-                    val colorHex = ColorPalettes.getColorForDirectionHex(rightDirs[6 + j])
-                    val centerRad = (r1 + innerHoleRadius) / 2f
-                    // 22.5 degree width => center is +11.25
-                    val angleRad = Math.toRadians((startAngle + j * 22.5f + 11.25f).toDouble())
-                    drawCharText(canvas, c, colorHex, centerRad, angleRad, alphaVal)
+                    if (c.isBlank()) continue
+                    drawCharText(
+                        canvas = canvas,
+                        charStr = c,
+                        ringInnerRadius = innerHoleRadius,
+                        ringOuterRadius = r1,
+                        startAngle = startAngle + j * 22.5f,
+                        sweepAngle = 22.5f,
+                        alphaVal = alphaVal
+                    )
                 }
             }
         }
@@ -395,14 +400,137 @@ class JoystickView @JvmOverloads constructor(
         canvas.drawCircle(thumbX, thumbY, thumbRadius * 0.6f, thumbInnerPaint)
     }
 
-    private fun drawCharText(canvas: Canvas, charStr: String, colorHex: String, radiusPos: Float, angleRad: Double, alphaVal: Int) {
-        // We must re-apply color each time because alpha modifier applies specifically to the color
-        charTextPaint.color = Color.WHITE 
-        charTextPaint.alpha = alphaVal
-        
-        val charX = centerX + cos(angleRad).toFloat() * radiusPos
-        val charY = centerY + sin(angleRad).toFloat() * radiusPos - (charTextPaint.descent() + charTextPaint.ascent()) / 2f
-        canvas.drawText(charStr, charX, charY, charTextPaint)
+    private fun drawCharText(
+        canvas: Canvas,
+        charStr: String,
+        ringInnerRadius: Float,
+        ringOuterRadius: Float,
+        startAngle: Float,
+        sweepAngle: Float,
+        alphaVal: Int
+    ) {
+        val centerRadius = (ringInnerRadius + ringOuterRadius) / 2f
+        val centerAngle = startAngle + sweepAngle / 2f
+        val angleRad = Math.toRadians(centerAngle.toDouble())
+        val charX = centerX + cos(angleRad).toFloat() * centerRadius
+        val charY = centerY + sin(angleRad).toFloat() * centerRadius
+
+        val arcWidth = centerRadius * Math.toRadians(sweepAngle.toDouble()).toFloat()
+        val ringHeight = ringOuterRadius - ringInnerRadius
+        val fittedSize = fittedSingleLineTextSize(
+            text = charStr,
+            basePaint = charTextPaint,
+            maxWidth = arcWidth * 0.72f,
+            maxHeight = ringHeight * 0.54f,
+            preferredSizes = listOf(34f, 32f, 30f, 28f, 26f, 24f, 22f, 20f, 18f)
+        )
+
+        val textPaint = Paint(charTextPaint).apply {
+            color = Color.WHITE
+            alpha = alphaVal
+            textSize = fittedSize
+        }
+
+        val baseline = charY - (textPaint.descent() + textPaint.ascent()) / 2f
+        canvas.drawText(charStr, charX, baseline, textPaint)
+    }
+
+    private fun drawRightDialContent(
+        canvas: Canvas,
+        iconName: String,
+        label: String,
+        centerX: Float,
+        centerY: Float,
+        alpha: Int
+    ) {
+        if (iconName.isEmpty() && label.isEmpty()) return
+
+        val hasIcon = iconName.isNotEmpty()
+        val lines = getRightDialLabelLines(label)
+
+        val availableWidth = if (hasIcon) baseRadius * 0.43f else baseRadius * 0.48f
+        val availableHeight = if (hasIcon) baseRadius * 0.36f else baseRadius * 0.30f
+
+        val textPaint = Paint(labelTextPaint).apply {
+            this.alpha = alpha
+            textSize = fittedTextSize(
+                lines = lines,
+                maxWidth = availableWidth,
+                maxHeight = availableHeight,
+                preferredSizes = listOf(20f, 18f, 16f, 14f, 12f)
+            )
+        }
+
+        val lineHeight = textPaint.fontSpacing * 0.9f
+        val textBlockHeight = if (lines.isEmpty()) 0f else lineHeight * lines.size
+        val iconSize = if (hasIcon) minOf(baseRadius * 0.095f, availableHeight * 0.34f) else 0f
+        val spacing = if (hasIcon && lines.isNotEmpty()) baseRadius * 0.024f else 0f
+        val totalHeight = iconSize + spacing + textBlockHeight
+        var currentCenterY = centerY - totalHeight / 2f
+
+        if (hasIcon) {
+            val iconCenterY = currentCenterY + iconSize / 2f
+            drawProgrammaticIcon(canvas, iconName, centerX, iconCenterY, iconSize, alpha)
+            currentCenterY += iconSize + spacing
+        }
+
+        lines.forEachIndexed { index, line ->
+            val lineCenterY = currentCenterY + lineHeight * index + lineHeight / 2f
+            val baseline = lineCenterY - (textPaint.descent() + textPaint.ascent()) / 2f
+            canvas.drawText(line, centerX, baseline, textPaint)
+        }
+    }
+
+    private fun fittedTextSize(
+        lines: List<String>,
+        maxWidth: Float,
+        maxHeight: Float,
+        preferredSizes: List<Float>
+    ): Float {
+        val measuringPaint = Paint(labelTextPaint)
+
+        for (size in preferredSizes) {
+            measuringPaint.textSize = size
+            val widestLine = lines.maxOfOrNull { measuringPaint.measureText(it) } ?: 0f
+            val totalHeight = measuringPaint.fontSpacing * 0.9f * lines.size.coerceAtLeast(1)
+            if (widestLine <= maxWidth && totalHeight <= maxHeight) {
+                return size
+            }
+        }
+
+        return preferredSizes.last()
+    }
+
+    private fun getRightDialLabelLines(label: String): List<String> {
+        return when (label) {
+            "Backspace" -> listOf("Back", "space")
+            "New Line" -> listOf("New", "Line")
+            "Caps Off" -> listOf("Caps", "Off")
+            else -> label.split(" ").filter { it.isNotBlank() }.ifEmpty {
+                if (label.isNotBlank()) listOf(label) else emptyList()
+            }
+        }
+    }
+
+    private fun fittedSingleLineTextSize(
+        text: String,
+        basePaint: Paint,
+        maxWidth: Float,
+        maxHeight: Float,
+        preferredSizes: List<Float>
+    ): Float {
+        val measuringPaint = Paint(basePaint)
+
+        for (size in preferredSizes) {
+            measuringPaint.textSize = size
+            val textWidth = measuringPaint.measureText(text)
+            val textHeight = measuringPaint.fontSpacing
+            if (textWidth <= maxWidth && textHeight <= maxHeight) {
+                return size
+            }
+        }
+
+        return preferredSizes.last()
     }
 
     fun updateThumb(dx: Float, dy: Float) {
@@ -466,6 +594,7 @@ class JoystickView @JvmOverloads constructor(
     private fun drawProgrammaticIcon(canvas: Canvas, type: String, x: Float, y: Float, size: Float, alpha: Int) {
         iconStrokePaint.alpha = alpha
         iconFillPaint.alpha = alpha
+        iconStrokePaint.strokeWidth = maxOf(3f, size * 0.16f)
         val h = size / 2f
         
         when (type) {
@@ -522,17 +651,17 @@ class JoystickView @JvmOverloads constructor(
             "backspace" -> {
                 // delete.left
                 val path = android.graphics.Path().apply {
-                    moveTo(x - h, y)
-                    lineTo(x - h/3f, y - h)
-                    lineTo(x + h, y - h)
-                    lineTo(x + h, y + h)
-                    lineTo(x - h/3f, y + h)
+                    moveTo(x - h * 0.82f, y)
+                    lineTo(x - h * 0.22f, y - h * 0.72f)
+                    lineTo(x + h * 0.80f, y - h * 0.72f)
+                    lineTo(x + h * 0.80f, y + h * 0.72f)
+                    lineTo(x - h * 0.22f, y + h * 0.72f)
                     close()
                 }
                 canvas.drawPath(path, iconStrokePaint)
                 // The X
-                canvas.drawLine(x + 2f, y - h/3f, x + h - 4f, y + h/3f, iconStrokePaint)
-                canvas.drawLine(x + h - 4f, y - h/3f, x + 2f, y + h/3f, iconStrokePaint)
+                canvas.drawLine(x - h * 0.02f, y - h * 0.26f, x + h * 0.42f, y + h * 0.26f, iconStrokePaint)
+                canvas.drawLine(x + h * 0.42f, y - h * 0.26f, x - h * 0.02f, y + h * 0.26f, iconStrokePaint)
             }
             "capslock" -> {
                 // capslock.fill

@@ -143,7 +143,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
 
         for (i in chars.indices) {
             val charStr = chars[i]
-            if (charStr == "*") continue
+            if (charStr.isBlank()) continue
 
             val dirForChar = allRightDirs.getOrNull(i) ?: Direction.NONE
 
