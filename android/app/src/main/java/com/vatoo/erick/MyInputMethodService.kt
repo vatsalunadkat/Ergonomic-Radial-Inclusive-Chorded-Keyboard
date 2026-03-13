@@ -5,6 +5,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import com.vatoo.erick.shared.ColorPaletteType
 import com.vatoo.erick.shared.InputAction
 import com.vatoo.erick.shared.KeyboardActionDelegate
 import com.vatoo.erick.shared.KeyboardStateMachine
@@ -14,6 +15,7 @@ import com.vatoo.erick.shared.LayoutType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
@@ -22,11 +24,9 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
     private lateinit var rightJoystick: JoystickView
 
     private lateinit var stateMachine: KeyboardStateMachine
-
     private lateinit var preferencesManager: PreferencesManager
 
-    // Scope needed only for observing the DataStore preference flow
-    private val serviceJob = SupervisorJob()
+    private val serviceJob   = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
 
     override fun onCreate() {
@@ -34,7 +34,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         preferencesManager = PreferencesManager(this)
         stateMachine = KeyboardStateMachine(this)
 
-        // Observe layout preference and push changes into the state machine
+        // Observe layout preference
         serviceScope.launch {
             preferencesManager.layoutType.collect { layoutString ->
                 val layoutType = when (layoutString) {
@@ -42,6 +42,16 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
                     else                                 -> LayoutType.LOGICAL
                 }
                 stateMachine.setLayoutType(layoutType)
+            }
+        }
+
+        // Observe color palette preference
+        serviceScope.launch {
+            preferencesManager.colorPalette.collect { paletteType ->
+                stateMachine.setColorPalette(paletteType)
+                // rightJoystick may not be inflated yet on first emission;
+                // applyPaletteToViews() guards against that.
+                applyPaletteToViews(paletteType)
             }
         }
     }
@@ -54,9 +64,12 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
     override fun onCreateInputView(): View {
         val view = layoutInflater.inflate(R.layout.keyboard_simple, null)
 
-        leftJoystick = view.findViewById(R.id.left_joystick)
+        leftJoystick  = view.findViewById(R.id.left_joystick)
         rightJoystick = view.findViewById(R.id.right_joystick)
         rightJoystick.isRightSide = true
+
+        // Apply the current palette immediately once the view is ready
+        applyPaletteToViews(stateMachine.getCurrentPaletteType())
 
         leftJoystick.setOnTouchListener { v, event ->
             v.performClick()
@@ -81,13 +94,23 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         return view
     }
 
+    /**
+     * Pushes the palette to the right joystick view.
+     * Safe to call before the view is inflated — does nothing in that case.
+     */
+    private fun applyPaletteToViews(paletteType: ColorPaletteType) {
+        if (::rightJoystick.isInitialized) {
+            rightJoystick.setPalette(paletteType)
+        }
+    }
+
     private fun dispatchTouchToStateMachine(event: MotionEvent, isLeft: Boolean, joystick: JoystickView) {
         val dx = event.x - (joystick.width / 2f)
         val dy = event.y - (joystick.height / 2f)
 
         val actionMasked = event.actionMasked
         val isDownOrMove = actionMasked == MotionEvent.ACTION_DOWN || actionMasked == MotionEvent.ACTION_MOVE
-        val isUpOrCancel = actionMasked == MotionEvent.ACTION_UP || actionMasked == MotionEvent.ACTION_CANCEL
+        val isUpOrCancel = actionMasked == MotionEvent.ACTION_UP   || actionMasked == MotionEvent.ACTION_CANCEL
 
         if (isDownOrMove) {
             joystick.updateThumb(dx, dy)
@@ -135,6 +158,15 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         info?.let { it.imeOptions = it.imeOptions or EditorInfo.IME_FLAG_NO_EXTRACT_UI }
         super.onStartInputView(info, restarting)
+
+        // Re-read the palette every time the keyboard becomes visible.
+        // This catches changes made in SettingsActivity while the IME was hidden,
+        // which the background collector may have missed.
+        serviceScope.launch {
+            val paletteType = preferencesManager.colorPalette.first()
+            stateMachine.setColorPalette(paletteType)
+            applyPaletteToViews(paletteType)
+        }
     }
     override fun onEvaluateFullscreenMode(): Boolean = false
     override fun onUpdateExtractingVisibility(ei: EditorInfo?) { setExtractViewShown(false) }

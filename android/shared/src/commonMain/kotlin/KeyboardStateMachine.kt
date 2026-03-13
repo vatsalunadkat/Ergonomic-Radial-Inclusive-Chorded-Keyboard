@@ -4,7 +4,8 @@ import kotlin.math.hypot
 
 class KeyboardStateMachine(
     private val delegate: KeyboardActionDelegate,
-    private var currentLayoutType: LayoutType = LayoutType.LOGICAL
+    private var currentLayoutType: LayoutType = LayoutType.LOGICAL,
+    private var currentPaletteType: ColorPaletteType = ColorPaletteType.DEFAULT
 ) {
     private val processor = KeyboardLogic()
     private val DEADZONE_RADIUS = 40f
@@ -17,6 +18,11 @@ class KeyboardStateMachine(
 
     fun setLayoutType(type: LayoutType) { currentLayoutType = type }
     fun getLayoutType(): LayoutType = currentLayoutType
+
+    // ── Color palette ─────────────────────────────────────────────────────────
+    fun setColorPalette(type: ColorPaletteType) { currentPaletteType = type }
+    fun getCurrentPalette(): List<ColorEntry> = ColorPalettes.getPalette(currentPaletteType)
+    fun getCurrentPaletteType(): ColorPaletteType = currentPaletteType
 
     fun handleTouch(x: Float, y: Float, isLeft: Boolean, actionDownOrMove: Boolean, actionUp: Boolean) {
         val distance = hypot(x.toDouble(), y.toDouble()).toFloat()
@@ -92,15 +98,20 @@ class KeyboardStateMachine(
 }
 
 // 专门为 iOS 准备的无痛初始化工厂函数
-fun createKeyboardStateMachineForIOS(delegate: KeyboardActionDelegate,
-                                     layoutType: LayoutType = LayoutType.LOGICAL): KeyboardStateMachine {
-    // 自动在 Kotlin 端创建一个绑定主线程的作用域供 iOS 使用
-    return KeyboardStateMachine(delegate, layoutType)
+fun createKeyboardStateMachineForIOS(
+    delegate: KeyboardActionDelegate,
+    layoutType: LayoutType = LayoutType.LOGICAL,
+    paletteType: ColorPaletteType = ColorPaletteType.DEFAULT
+): KeyboardStateMachine {
+    return KeyboardStateMachine(delegate, layoutType, paletteType)
 }
 
 object KeyboardFactory {
-    fun createEngine(delegate: KeyboardActionDelegate,
-                     layoutType: LayoutType = LayoutType.LOGICAL): KeyboardStateMachine {
-        return KeyboardStateMachine(delegate, layoutType)
+    fun createEngine(
+        delegate: KeyboardActionDelegate,
+        layoutType: LayoutType = LayoutType.LOGICAL,
+        paletteType: ColorPaletteType = ColorPaletteType.DEFAULT
+    ): KeyboardStateMachine {
+        return KeyboardStateMachine(delegate, layoutType, paletteType)
     }
 }

@@ -1,9 +1,12 @@
 package com.vatoo.erick
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -11,7 +14,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.vatoo.erick.shared.ColorPaletteType
+import com.vatoo.erick.shared.ColorPalettes
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -21,9 +28,9 @@ fun SettingsScreen(
     layoutPreferences: LayoutPreferences,
     onClose: () -> Unit
 ) {
-    val layoutType by preferencesManager.layoutType.collectAsState(initial = PreferencesManager.LAYOUT_LOGICAL)
-    val darkTheme by preferencesManager.darkTheme.collectAsState(initial = false)
-    val colorblindMode by preferencesManager.colorblindMode.collectAsState(initial = false)
+    val layoutType    by preferencesManager.layoutType.collectAsState(initial = PreferencesManager.LAYOUT_LOGICAL)
+    val darkTheme     by preferencesManager.darkTheme.collectAsState(initial = false)
+    val colorPalette  by preferencesManager.colorPalette.collectAsState(initial = ColorPaletteType.DEFAULT)
     val leftHandedMode by preferencesManager.leftHandedMode.collectAsState(initial = false)
 
     val scope = rememberCoroutineScope()
@@ -55,7 +62,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // Layout Section
+            // ── Layout ────────────────────────────────────────────────────────
             Text(
                 text = "Keyboard Layout",
                 style = MaterialTheme.typography.titleMedium,
@@ -68,11 +75,7 @@ fun SettingsScreen(
                 subtitle = null,
                 selected = layoutType == PreferencesManager.LAYOUT_LOGICAL,
                 enabled = true,
-                onClick = {
-                    scope.launch {
-                        preferencesManager.setLayoutType(PreferencesManager.LAYOUT_LOGICAL)
-                    }
-                }
+                onClick = { scope.launch { preferencesManager.setLayoutType(PreferencesManager.LAYOUT_LOGICAL) } }
             )
 
             LayoutRadioOption(
@@ -80,16 +83,12 @@ fun SettingsScreen(
                 subtitle = "Optimized for English letter frequency",
                 selected = layoutType == PreferencesManager.LAYOUT_EFFICIENCY,
                 enabled = true,
-                onClick = {
-                    scope.launch {
-                        preferencesManager.setLayoutType(PreferencesManager.LAYOUT_EFFICIENCY)
-                    }
-                }
+                onClick = { scope.launch { preferencesManager.setLayoutType(PreferencesManager.LAYOUT_EFFICIENCY) } }
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            // Appearance Section
+            // ── Appearance ────────────────────────────────────────────────────
             Text(
                 text = "Appearance",
                 style = MaterialTheme.typography.titleMedium,
@@ -101,48 +100,48 @@ fun SettingsScreen(
                 title = "Dark Theme",
                 checked = darkTheme,
                 enabled = true,
-                onCheckedChange = { checked ->
-                    scope.launch {
-                        preferencesManager.setDarkTheme(checked)
-                    }
-                }
+                onCheckedChange = { scope.launch { preferencesManager.setDarkTheme(it) } }
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            // Accessibility Section
+            // ── Accessibility ─────────────────────────────────────────────────
             Text(
                 text = "Accessibility",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 4.dp)
             )
 
-            SettingToggle(
-                title = "Colorblind Mode",
-                checked = colorblindMode,
-                enabled = true,
-                onCheckedChange = { checked ->
-                    scope.launch {
-                        preferencesManager.setColorblindMode(checked)
-                    }
-                }
+            Text(
+                text = "Color Palette",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
+
+            // Palette options
+            ColorPaletteType.entries.forEach { paletteType ->
+                ColorPaletteOption(
+                    paletteType = paletteType,
+                    isSelected = colorPalette == paletteType,
+                    onClick = { scope.launch { preferencesManager.setColorPalette(paletteType) } }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             SettingToggle(
                 title = "Left-Handed Mode",
                 checked = leftHandedMode,
                 enabled = true,
-                onCheckedChange = { checked ->
-                    scope.launch {
-                        preferencesManager.setLeftHandedMode(checked)
-                    }
-                }
+                onCheckedChange = { scope.launch { preferencesManager.setLeftHandedMode(it) } }
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            // Privacy & Security Section
+            // ── Privacy & Security ────────────────────────────────────────────
             Text(
                 text = "Privacy & Security",
                 style = MaterialTheme.typography.titleMedium,
@@ -178,6 +177,82 @@ fun SettingsScreen(
     }
 }
 
+// ── Color palette row ─────────────────────────────────────────────────────────
+
+@Composable
+private fun ColorPaletteOption(
+    paletteType: ColorPaletteType,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val label = when (paletteType) {
+        ColorPaletteType.DEFAULT      -> "Default"
+        ColorPaletteType.OKABE_ITO    -> "Okabe-Ito (Universal)"
+        ColorPaletteType.DEUTERANOPIA -> "Deuteranopia (Green-blind)"
+        ColorPaletteType.PROTANOPIA   -> "Protanopia (Red-blind)"
+        ColorPaletteType.TRITANOPIA   -> "Tritanopia (Blue-blind)"
+    }
+
+    val colors = ColorPalettes.getPalette(paletteType)
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected)
+            MaterialTheme.colorScheme.primaryContainer
+        else
+            MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .then(
+                if (isSelected) Modifier.border(
+                    width = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(12.dp)
+                ) else Modifier
+            )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            // 8 color swatches
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                colors.forEach { entry ->
+                    val hex = entry.hexColor
+                    val color = Color(
+                        red   = ((hex shr 16) and 0xFF).toFloat() / 255f,
+                        green = ((hex shr 8)  and 0xFF).toFloat() / 255f,
+                        blue  = (hex          and 0xFF).toFloat() / 255f,
+                        alpha = 1f
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), CircleShape)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── Reusable components (unchanged) ──────────────────────────────────────────
+
 @Composable
 fun LayoutRadioOption(
     title: String,
@@ -190,34 +265,17 @@ fun LayoutRadioOption(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled) { onClick() }
-            .padding(vertical = 12.dp)
-            .then(
-                if (!enabled) {
-                    Modifier.background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .padding(horizontal = 8.dp),
+            .padding(vertical = 12.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(
-            selected = selected,
-            onClick = onClick,
-            enabled = enabled
-        )
+        RadioButton(selected = selected, onClick = onClick, enabled = enabled)
         Spacer(modifier = Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (enabled) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                }
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
             if (subtitle != null) {
                 Text(
@@ -247,16 +305,9 @@ fun SettingToggle(
             text = title,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f),
-            color = if (enabled) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            }
+            color = if (enabled) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
         )
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled
-        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }

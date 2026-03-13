@@ -1,11 +1,19 @@
 package com.vatoo.erick
+
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
+import com.vatoo.erick.shared.ColorEntry
+import com.vatoo.erick.shared.ColorPaletteType
+import com.vatoo.erick.shared.ColorPalettes
+import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.sin
 
 class JoystickView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -18,6 +26,32 @@ class JoystickView @JvmOverloads constructor(
     var isRightSide: Boolean = false
     private var previewText: String = ""
 
+    // --- 调色板 ---
+    // Direction order matches the drawing loop: E, SE, S, SW, W, NW, N, NE
+    // which maps to palette positions 0–7
+    private var paletteColors: List<ColorEntry> = ColorPalettes.getPalette(ColorPaletteType.DEFAULT)
+
+    // Per-sector Paint objects (reused across draws)
+    private val sectorPaints: Array<Paint> = Array(8) {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    }
+
+    /** Call this whenever the user changes palette in settings. */
+    fun setPalette(type: ColorPaletteType) {
+        paletteColors = ColorPalettes.getPalette(type)
+        applyPaletteToSectorPaints()
+        invalidate()
+    }
+
+    private fun applyPaletteToSectorPaints() {
+        paletteColors.forEachIndexed { i, entry ->
+            // entry.hexColor is 0xFFRRGGBB — Android Color.toArgb() compatible
+            sectorPaints[i].color = entry.hexColor.toInt()
+            // Lighten slightly so sectors feel like a soft guide, not a full fill
+            sectorPaints[i].alpha = 255  // 0–255; ~35% opacity
+        }
+    }
+
     // --- 尺寸与坐标 ---
     private var centerX = 0f
     private var centerY = 0f
@@ -28,52 +62,56 @@ class JoystickView @JvmOverloads constructor(
     private var thumbX = 0f
     private var thumbY = 0f
 
+    // Reusable drawing objects
+    private val sectorPath = Path()
+    private val baseOval   = RectF()
+
     // --- 画笔设置 ---
     private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E0E0E0") // 底座：浅灰色
+        color = Color.parseColor("#E0E0E0")
         style = Paint.Style.FILL
     }
 
     private val thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#757575") // 滑块：深灰色
+        color = Color.parseColor("#757575")
         style = Paint.Style.FILL
     }
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#1976D2") // 文字：醒目的蓝色
-        textSize = 80f // 预览文字大小
+        color = Color.parseColor("#1976D2")
+        textSize = 80f
         textAlign = Paint.Align.CENTER
         isFakeBoldText = true
     }
 
     private val directionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#BDBDBD") // 辅助线：稍深于底座的灰色
+        color = Color.parseColor("#BDBDBD")
         style = Paint.Style.STROKE
         strokeWidth = 4f
     }
 
     private val directionTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#9E9E9E") // 辅助文字：灰色
-        textSize = 36f // 字号适合底座大小
+        color = Color.parseColor("#9E9E9E")
+        textSize = 36f
         textAlign = Paint.Align.CENTER
         isFakeBoldText = true
     }
 
-    // --- 尺寸初始化 (当 View 第一次测量大小时调用) ---
+    init {
+        applyPaletteToSectorPaints()
+    }
+
+    // --- 尺寸初始化 ---
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-
-        // 计算圆心（View 的正中心）
-        centerX = w / 2f
-        centerY = h / 2f
-
-        // 留出一点 padding，底座半径取宽高的较小值的一半
-        baseRadius = (Math.min(w, h) / 2f) * 0.85f
-
-        // 滑块半径设定为底座半径的 1/3
+        centerX    = w / 2f
+        centerY    = h / 2f
+        baseRadius = (minOf(w, h) / 2f) * 0.85f
         thumbRadius = baseRadius / 3f
-
-        // 初始状态下，滑块在正中心
+        baseOval.set(
+            centerX - baseRadius, centerY - baseRadius,
+            centerX + baseRadius, centerY + baseRadius
+        )
         resetThumb()
     }
 
@@ -81,91 +119,99 @@ class JoystickView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        // 1. 画底座
+        // 1. Base circle
         canvas.drawCircle(centerX, centerY, baseRadius, basePaint)
 
-        // 画8个方向的指示线和文字 (Draw 8 direction guide lines and text labels)
+        // 2. Colored sectors (right joystick only)
+        //    Each sector is a 45° pie slice from the deadzone edge to the base edge.
+        //    The direction loop order is: E(0°), SE(45°), S(90°) … matching palette positions 0–7.
+        if (isRightSide) {
+            val deadzoneRadius = baseRadius * 0.30f  // inner radius of the colored ring
+            val innerOval = RectF(
+                centerX - deadzoneRadius, centerY - deadzoneRadius,
+                centerX + deadzoneRadius, centerY + deadzoneRadius
+            )
+
+            for (i in 0 until 8) {
+                // Each sector spans 45°; we start 22.5° before the direction angle so the
+                // label sits in the middle of the sector.
+                val sweepDeg   = 45f
+                val startDeg   = (i * 45f) - 22.5f   // degrees (0° = 3 o'clock = East)
+
+                sectorPath.reset()
+                // Outer arc
+                sectorPath.arcTo(baseOval, startDeg, sweepDeg, true)
+                // Line to inner arc start
+                val endDeg = Math.toRadians((startDeg + sweepDeg).toDouble())
+                sectorPath.lineTo(
+                    centerX + deadzoneRadius * cos(endDeg).toFloat(),
+                    centerY + deadzoneRadius * sin(endDeg).toFloat()
+                )
+                // Inner arc (reversed)
+                sectorPath.arcTo(innerOval, startDeg + sweepDeg, -sweepDeg, false)
+                sectorPath.close()
+
+                canvas.drawPath(sectorPath, sectorPaints[i])
+            }
+        }
+
+        // 3. Direction guide lines and labels
         val dirLabels = arrayOf("E", "SE", "S", "SW", "W", "NW", "N", "NE")
         for (i in 0 until 8) {
-            val angle = i * Math.PI / 4 // 每 45 度 (Every 45 degrees)
+            val angle = i * Math.PI / 4
 
-            // 线条从底座的 30% 延伸到 75%
             val innerRadius = baseRadius * 0.3f
             val outerRadius = baseRadius * 0.75f
 
-            val startX = centerX + innerRadius * Math.cos(angle).toFloat()
-            val startY = centerY + innerRadius * Math.sin(angle).toFloat()
-            val stopX = centerX + outerRadius * Math.cos(angle).toFloat()
-            val stopY = centerY + outerRadius * Math.sin(angle).toFloat()
-
+            val startX = centerX + innerRadius * cos(angle).toFloat()
+            val startY = centerY + innerRadius * sin(angle).toFloat()
+            val stopX  = centerX + outerRadius * cos(angle).toFloat()
+            val stopY  = centerY + outerRadius * sin(angle).toFloat()
             canvas.drawLine(startX, startY, stopX, stopY, directionPaint)
 
-            // 文字画在 88% 的位置 (Draw text at 88% of radius)
             val textRadius = baseRadius * 0.88f
-            val textX = centerX + textRadius * Math.cos(angle).toFloat()
-            val textY = centerY + textRadius * Math.sin(angle).toFloat()
-
-            // 计算文字的垂直居中偏移量 (Vertical centering offset for text)
+            val textX = centerX + textRadius * cos(angle).toFloat()
+            val textY = centerY + textRadius * sin(angle).toFloat()
             val textOffsetY = (directionTextPaint.descent() + directionTextPaint.ascent()) / 2
             canvas.drawText(dirLabels[i], textX, textY - textOffsetY, directionTextPaint)
         }
 
-        // 2. 画预览文字（如果是右摇杆且有文字）
-        // 放在滑块下面画，这样如果手指在中心，文字会被遮挡一部分，但推开后能清晰看到
+        // 4. Preview text (right joystick)
         if (isRightSide && previewText.isNotEmpty()) {
-            // 计算文字的垂直居中偏移量
             val textOffsetY = (textPaint.descent() + textPaint.ascent()) / 2
             canvas.drawText(previewText, centerX, centerY - textOffsetY, textPaint)
         }
 
-        // 3. 画滑块（跟随手指）
+        // 5. Thumb
         canvas.drawCircle(thumbX, thumbY, thumbRadius, thumbPaint)
     }
 
     // --- 供 Service 调用的 UI 更新方法 ---
 
-    /**
-     * 更新滑块位置 (传入的是相对于圆心的偏移量 dx, dy)
-     */
     fun updateThumb(dx: Float, dy: Float) {
-        // 计算手指离圆心的直线距离 (勾股定理)
-        val distance = hypot(dx.toDouble(), dy.toDouble()).toFloat()
-
-        // 计算滑块能移动的最大范围（防止滑块滑出底座）
+        val distance  = hypot(dx.toDouble(), dy.toDouble()).toFloat()
         val maxRadius = baseRadius - thumbRadius
-
         if (distance > maxRadius) {
-            // 如果手指滑出了最大范围，需要把滑块"钳制"在边缘
-            // 利用相似三角形原理，按比例缩放 dx 和 dy
             val ratio = maxRadius / distance
-            thumbX = centerX + (dx * ratio)
-            thumbY = centerY + (dy * ratio)
+            thumbX = centerX + dx * ratio
+            thumbY = centerY + dy * ratio
         } else {
-            // 在范围内，直接跟随
             thumbX = centerX + dx
             thumbY = centerY + dy
         }
-
-        // 通知 Android 重新调用 onDraw 画图
         invalidate()
     }
 
-    /**
-     * 松手时，滑块弹回圆心
-     */
     fun resetThumb() {
         thumbX = centerX
         thumbY = centerY
-        invalidate() // 触发重绘
+        invalidate()
     }
 
-    /**
-     * 设置右摇杆的预览文字
-     */
     fun setPreviewText(text: String) {
         if (previewText != text) {
             previewText = text
-            invalidate() // 只有文字改变时才重绘，节省性能
+            invalidate()
         }
     }
 }
