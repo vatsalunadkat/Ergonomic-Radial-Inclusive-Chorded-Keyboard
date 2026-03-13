@@ -12,6 +12,7 @@ import android.util.AttributeSet
 import android.view.View
 import com.vatoo.erick.shared.ColorPalettes
 import com.vatoo.erick.shared.Direction
+import com.vatoo.erick.shared.KeyboardMode
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -23,6 +24,13 @@ class JoystickView @JvmOverloads constructor(
 
     var processor: Any? = null
     var isRightSide: Boolean = false
+    var keyboardMode: KeyboardMode = KeyboardMode.NORMAL
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
     private var previewText: String = ""
 
     private var centerX = 0f
@@ -32,7 +40,7 @@ class JoystickView @JvmOverloads constructor(
     private var thumbX = 0f
     private var thumbY = 0f
     
-    private var rightIconBitmap: Bitmap? = null
+    private val iconBitmaps = mutableMapOf<String, Bitmap>()
 
     var activeDirection: Direction = Direction.NONE
         private set
@@ -73,6 +81,18 @@ class JoystickView @JvmOverloads constructor(
         strokeWidth = 10f
     }
 
+    private val iconStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 5f
+        strokeCap = Paint.Cap.ROUND
+    }
+
+    private val iconFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
+    }
+
     private val thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#9E9E9E")
         style = Paint.Style.FILL
@@ -91,8 +111,15 @@ class JoystickView @JvmOverloads constructor(
         typeface = Typeface.DEFAULT_BOLD
     }
 
+    private val labelTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 24f
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT
+    }
+
     //'?' is only a placeholder
-    private val leftChars = mapOf(
+    private val leftCharsNormal = mapOf(
         Direction.N to listOf("a", "b", "c", "d", "e", "?", "?", "'"),
         Direction.NE to listOf("f", "g", "h", "i", "j", "?", "?", "/"),
         Direction.E to listOf("k", "l", "m", "n", "o", "?", "?", ";"),
@@ -101,6 +128,17 @@ class JoystickView @JvmOverloads constructor(
         Direction.SW to listOf("z", "\\", "[", "]", "`", "?", "?", "?"),
         Direction.W to listOf("1", "2", "3", "4", "5", "?", "?", "?"),
         Direction.NW to listOf("6", "7", "8", "9", "0", "?", "?", "?")
+    )
+
+    private val leftCharsShifted = mapOf(
+        Direction.N to listOf("A", "B", "C", "D", "E", "?", "?", "\""),
+        Direction.NE to listOf("F", "G", "H", "I", "J", "?", "?", "?"),
+        Direction.E to listOf("K", "L", "M", "N", "O", "?", "?", ":"),
+        Direction.SE to listOf("P", "Q", "R", "S", "T", "?", "?", "_"),
+        Direction.S to listOf("U", "V", "W", "X", "Y", "?", "?", "+"),
+        Direction.SW to listOf("Z", "|", "{", "}", "~", "?", "?", "?"),
+        Direction.W to listOf("!", "@", "#", "$", "%", "?", "?", "?"),
+        Direction.NW to listOf("^", "&", "*", "(", ")", "?", "?", "?")
     )
     
     private val rightDirs = listOf(
@@ -125,21 +163,9 @@ class JoystickView @JvmOverloads constructor(
         baseRadius = (Math.min(w, h) / 2f) * 0.90f
         thumbRadius = baseRadius * 0.22f
         
-        // Load and pre-scale the right dial icon (capslock)
-        // Android collapses subfolders in res/drawable/ into the main drawable namespace during packaging.
-        // So 'Key_icons/capslock.png' is just accessed as 'capslock' in the 'drawable' defType.
-        val iconResId = context.resources.getIdentifier("capslock", "drawable", context.packageName)
-        if (iconResId != 0) {
-            val originalBitmap = BitmapFactory.decodeResource(context.resources, iconResId)
-            if (originalBitmap != null) {
-                // Scale it to fit nicely inside the slice segment.
-                // Scaled down 20% by user request (0.35 -> 0.28)
-                val iconSize = (baseRadius * 0.28f).toInt()
-                if (iconSize > 0) {
-                    rightIconBitmap = Bitmap.createScaledBitmap(originalBitmap, iconSize, iconSize, true)
-                }
-            }
-        }
+        // Bitmaps are only used for left side or legacy if needed.
+        // For the right joystick, we are now 100% programmatic.
+        iconBitmaps.clear()
         
         resetThumb()
     }
@@ -166,18 +192,32 @@ class JoystickView @JvmOverloads constructor(
                 rightSegmentLinePaint.alpha = if (activeDirection != Direction.NONE && !isActive) 60 else 255
                 canvas.drawArc(rectF, startAngle, sweepAngle, true, rightSegmentLinePaint) // Use white lines for right joystick
                 
-                // Draw the icon in the center of the segment
-                rightIconBitmap?.let { bmp ->
-                    // Find the graphical center of the slice (e.g. at 65% of the radius outwards)
-                    val iconCenterRadius = baseRadius * 0.65f
-                    val angleRad = Math.toRadians((startAngle + sweepAngle / 2f).toDouble())
-                    val iconX = centerX + cos(angleRad).toFloat() * iconCenterRadius
-                    val iconY = centerY + sin(angleRad).toFloat() * iconCenterRadius
-                    
-                    val paintAlpha = if (activeDirection != Direction.NONE && !isActive) 60 else 255
-                    val iconPaint = Paint().apply { alpha = paintAlpha }
-                    
-                    canvas.drawBitmap(bmp, iconX - bmp.width / 2f, iconY - bmp.height / 2f, iconPaint)
+                // Draw Icon and Label
+                val (iconName, label) = getInfoForDirection(dir)
+                val paintAlpha = if (activeDirection != Direction.NONE && !isActive) 60 else 255
+                
+                // Content area center
+                val angleRad = Math.toRadians((startAngle + sweepAngle / 2f).toDouble())
+                val contentCenterRadius = baseRadius * 0.62f
+                
+                val contentCenterX = centerX + cos(angleRad).toFloat() * contentCenterRadius
+                val contentCenterY = centerY + sin(angleRad).toFloat() * contentCenterRadius
+                
+                // Vertical layout: Icon on top, Text below
+                val iconSize = baseRadius * 0.12f
+                val spacing = 8f
+                
+                // Draw Icon (shifted up)
+                if (iconName.isNotEmpty()) {
+                    val iconY = contentCenterY - (iconSize / 2f)
+                    drawProgrammaticIcon(canvas, iconName, contentCenterX, iconY, iconSize, paintAlpha)
+                }
+                
+                // Draw Label (shifted down)
+                if (label.isNotEmpty()) {
+                    val labelY = contentCenterY + (iconSize / 2f) + spacing - (labelTextPaint.descent() + labelTextPaint.ascent()) / 2f
+                    labelTextPaint.alpha = paintAlpha
+                    canvas.drawText(label, contentCenterX, labelY, labelTextPaint)
                 }
             }
         } else {
@@ -311,10 +351,11 @@ class JoystickView @JvmOverloads constructor(
             }
 
             // 8. Draw Characters
+            val currentCharsMap = if (keyboardMode == KeyboardMode.NORMAL) leftCharsNormal else leftCharsShifted
             for (i in 0 until 8) {
                 val dir = directions[i]
                 val startAngle = -22.5f + i * 45f
-                val chars = leftChars[dir] ?: emptyList()
+                val chars = currentCharsMap[dir] ?: emptyList()
                 val isActive = (dir == activeDirection && activeDirection != Direction.NONE)
                 val alphaVal = if (activeDirection != Direction.NONE && !isActive) 60 else 255
                 
@@ -402,6 +443,113 @@ class JoystickView @JvmOverloads constructor(
         }
 
         invalidate()
+    }
+
+    private fun getInfoForDirection(dir: Direction): Pair<String, String> {
+        val isShifted = keyboardMode == KeyboardMode.SHIFTED
+        val isCaps = keyboardMode == KeyboardMode.CAPS_LOCKED
+        val isToggled = isShifted || isCaps
+        
+        return when (dir) {
+            Direction.N -> if (isToggled) "end" to "End" else "home" to "Home"
+            Direction.NE -> "" to (if (isToggled) "<" else ",")
+            Direction.E -> "space" to "Space"
+            Direction.SE -> "" to (if (isToggled) ">" else ".")
+            Direction.S -> "enter" to (if (isToggled) "New Line" else "Enter")
+            Direction.SW -> "shift" to "Shift"
+            Direction.W -> "backspace" to "Backspace"
+            Direction.NW -> "capslock" to (if (isCaps) "Caps Off" else "Caps")
+            else -> "" to ""
+        }
+    }
+
+    private fun drawProgrammaticIcon(canvas: Canvas, type: String, x: Float, y: Float, size: Float, alpha: Int) {
+        iconStrokePaint.alpha = alpha
+        iconFillPaint.alpha = alpha
+        val h = size / 2f
+        
+        when (type) {
+            "home" -> {
+                // arrow.up.to.line
+                canvas.drawLine(x - h, y - h, x + h, y - h, iconStrokePaint) // Top bar
+                val path = android.graphics.Path().apply {
+                    moveTo(x, y - h + 5f)
+                    lineTo(x - h, y + h)
+                    lineTo(x + h, y + h)
+                    close()
+                }
+                canvas.drawPath(path, iconFillPaint)
+            }
+            "end" -> {
+                // arrow.down.to.line
+                canvas.drawLine(x - h, y + h, x + h, y + h, iconStrokePaint) // Bottom bar
+                val path = android.graphics.Path().apply {
+                    moveTo(x, y + h - 5f)
+                    lineTo(x - h, y - h)
+                    lineTo(x + h, y - h)
+                    close()
+                }
+                canvas.drawPath(path, iconFillPaint)
+            }
+            "space" -> {
+                // Horizontal bracket
+                canvas.drawLine(x - h, y + h/2f, x + h, y + h/2f, iconStrokePaint)
+                canvas.drawLine(x - h, y, x - h, y + h/2f, iconStrokePaint)
+                canvas.drawLine(x + h, y, x + h, y + h/2f, iconStrokePaint)
+            }
+            "enter" -> {
+                // return (L-shape arrow)
+                canvas.drawLine(x + h, y - h, x + h, y + h, iconStrokePaint)
+                canvas.drawLine(x + h, y + h, x - h, y + h, iconStrokePaint)
+                // arrow head
+                canvas.drawLine(x - h, y + h, x - h + 6f, y + h - 6f, iconStrokePaint)
+                canvas.drawLine(x - h, y + h, x - h + 6f, y + h + 6f, iconStrokePaint)
+            }
+            "shift" -> {
+                // shift.fill
+                val path = android.graphics.Path().apply {
+                    moveTo(x, y - h)
+                    lineTo(x - h, y + h/3f)
+                    lineTo(x - h/2f, y + h/3f)
+                    lineTo(x - h/2f, y + h)
+                    lineTo(x + h/2f, y + h)
+                    lineTo(x + h/2f, y + h/3f)
+                    lineTo(x + h, y + h/3f)
+                    close()
+                }
+                canvas.drawPath(path, iconFillPaint)
+            }
+            "backspace" -> {
+                // delete.left
+                val path = android.graphics.Path().apply {
+                    moveTo(x - h, y)
+                    lineTo(x - h/3f, y - h)
+                    lineTo(x + h, y - h)
+                    lineTo(x + h, y + h)
+                    lineTo(x - h/3f, y + h)
+                    close()
+                }
+                canvas.drawPath(path, iconStrokePaint)
+                // The X
+                canvas.drawLine(x + 2f, y - h/3f, x + h - 4f, y + h/3f, iconStrokePaint)
+                canvas.drawLine(x + h - 4f, y - h/3f, x + 2f, y + h/3f, iconStrokePaint)
+            }
+            "capslock" -> {
+                // capslock.fill
+                val path = android.graphics.Path().apply {
+                    moveTo(x, y - h + 5f)
+                    lineTo(x - h, y + h/3f)
+                    lineTo(x - h/2f, y + h/3f)
+                    lineTo(x - h/2f, y + h/2f)
+                    lineTo(x + h/2f, y + h/2f)
+                    lineTo(x + h/2f, y + h/3f)
+                    lineTo(x + h, y + h/3f)
+                    close()
+                }
+                canvas.drawPath(path, iconFillPaint)
+                canvas.drawLine(x - h, y + h, x + h, y + h, iconStrokePaint) // Bottom bar
+            }
+        }
     }
 
     fun resetThumb() {

@@ -14,7 +14,13 @@ class KeyboardStateMachine(
     // 核心状态
     private var leftActiveDir = Direction.NONE
     private var rightActiveDir = Direction.NONE
-    private var currentMode = KeyboardMode.NORMAL
+    var currentMode = KeyboardMode.NORMAL
+        private set(value) {
+            if (field != value) {
+                field = value
+                delegate.onModeChanged(value)
+            }
+        }
     private var isChordExecuted = false
 
     // 协程计时器任务

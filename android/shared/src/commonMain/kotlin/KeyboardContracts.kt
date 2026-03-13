@@ -26,4 +26,7 @@ interface KeyboardActionDelegate {
 
     // 执行系统级动作 (比如回车、删除、移动光标)
     fun sendInputAction(action: InputAction)
+
+    // 通知模式变更 (NORMAL, SHIFTED, CAPS_LOCKED)
+    fun onModeChanged(mode: KeyboardMode)
 }

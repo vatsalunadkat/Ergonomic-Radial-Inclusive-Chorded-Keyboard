@@ -107,6 +107,9 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         // 2. 将数据喂给跨平台状态机 (它不需要知道什么是 MotionEvent)
         stateMachine.handleTouch(dx, dy, isLeft, isDownOrMove, isUpOrCancel)
 
+        // 3. Update right joystick mode if needed
+        rightJoystick.keyboardMode = stateMachine.currentMode
+
         // 3. 从状态机获取原先的预览逻辑（移除旧的摇杆文字预览）
         // rightJoystick.setPreviewText(stateMachine.getPreviewText())
 
@@ -210,6 +213,11 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
             currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
             currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
         }
+    }
+
+    override fun onModeChanged(mode: com.vatoo.erick.shared.KeyboardMode) {
+        leftJoystick.keyboardMode = mode
+        rightJoystick.keyboardMode = mode
     }
 
     // --- 彻底禁止全屏的"四重防火墙" (保持不变) ---
