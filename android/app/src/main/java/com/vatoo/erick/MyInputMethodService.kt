@@ -8,10 +8,13 @@ import android.view.inputmethod.EditorInfo
 import com.vatoo.erick.shared.InputAction
 import com.vatoo.erick.shared.KeyboardActionDelegate
 import com.vatoo.erick.shared.KeyboardStateMachine
+import com.vatoo.erick.shared.LayoutType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import android.content.Intent
 import android.widget.ImageButton
 import android.widget.FrameLayout
@@ -42,11 +45,22 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
 
     // 引入我们在 Shared 模块里写的跨平台大脑
     private lateinit var stateMachine: KeyboardStateMachine
+    private lateinit var layoutPreferences: LayoutPreferences
 
     override fun onCreate() {
         super.onCreate()
         // 输入法创建时，组装大脑，并把自己 (this) 作为代理传进去
         stateMachine = KeyboardStateMachine(this, serviceScope)
+
+        // 监听布局偏好变化，实时切换布局
+        layoutPreferences = LayoutPreferences(this)
+        layoutPreferences.selectedLayout.onEach { layout ->
+            val layoutType = when (layout) {
+                KeyboardLayout.EFFICIENCY -> LayoutType.EFFICIENCY
+                else -> LayoutType.LOGICAL
+            }
+            stateMachine.setLayoutType(layoutType)
+        }.launchIn(serviceScope)
     }
 
     override fun onDestroy() {
