@@ -27,6 +27,7 @@ class PreferencesManager(private val context: Context) {
         const val PALETTE_DEUTERANOPIA = "deuteranopia"
         const val PALETTE_PROTANOPIA = "protanopia"
         const val PALETTE_TRITANOPIA = "tritanopia"
+        const val PALETTE_PASTEL = "pastel"
     }
 
     val layoutType: Flow<String> = context.dataStore.data

@@ -184,6 +184,16 @@ fun SettingsScreen(
                         scope.launch { preferencesManager.setColorPalette(PreferencesManager.PALETTE_TRITANOPIA) }
                     }
                 )
+
+                PaletteRadioOption(
+                    title = "Pastel (Soft)",
+                    subtitle = "Softer colors that are easier on the eyes",
+                    paletteType = ColorPaletteType.PASTEL,
+                    selected = colorPalette == PreferencesManager.PALETTE_PASTEL,
+                    onClick = {
+                        scope.launch { preferencesManager.setColorPalette(PreferencesManager.PALETTE_PASTEL) }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))

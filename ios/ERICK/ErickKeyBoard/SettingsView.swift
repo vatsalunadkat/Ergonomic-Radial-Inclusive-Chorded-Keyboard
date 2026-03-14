@@ -89,6 +89,13 @@ struct SettingsView: View {
                             selected: colorPalette == "tritanopia",
                             onSelect: { colorPalette = "tritanopia" }
                         )
+                        ColorPaletteOption(
+                            title: "Pastel (Soft)",
+                            subtitle: "Softer colors that are easier on the eyes",
+                            palette: ColorPaletteDefinitions.pastel,
+                            selected: colorPalette == "pastel",
+                            onSelect: { colorPalette = "pastel" }
+                        )
                     }
 
                     Toggle("Left-Handed Mode", isOn: $leftHandedMode)
@@ -181,12 +188,24 @@ struct ColorPaletteDefinitions {
         .init(name: "Black", hex: "#000000")
     ]
 
+    static let pastel: [ColorPaletteEntry] = [
+        .init(name: "Rose", hex: "#F4A6B0"),
+        .init(name: "Peach", hex: "#F6C9A0"),
+        .init(name: "Lemon", hex: "#FDE9A0"),
+        .init(name: "Mint", hex: "#A8DFC0"),
+        .init(name: "Sky", hex: "#A0C4E8"),
+        .init(name: "Lavender", hex: "#C4A8D8"),
+        .init(name: "Lilac", hex: "#D8A8C8"),
+        .init(name: "Slate", hex: "#8B8B8B")
+    ]
+
     static func palette(for key: String) -> [ColorPaletteEntry] {
         switch key {
         case "okabe_ito": return okabeIto
         case "deuteranopia": return deuteranopia
         case "protanopia": return protanopia
         case "tritanopia": return tritanopia
+        case "pastel": return pastel
         default: return defaultPalette
         }
     }

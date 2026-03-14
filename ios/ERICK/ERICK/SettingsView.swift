@@ -72,6 +72,13 @@ struct SettingsView: View {
                             selected: colorPalette == "tritanopia",
                             onSelect: { colorPalette = "tritanopia" }
                         )
+                        AppColorPaletteOption(
+                            title: "Pastel (Soft)",
+                            subtitle: "Softer colors that are easier on the eyes",
+                            palette: AppColorPaletteDefinitions.pastel,
+                            selected: colorPalette == "pastel",
+                            onSelect: { colorPalette = "pastel" }
+                        )
                     }
 
                     Toggle("Left-Handed Mode", isOn: $leftHandedMode)
@@ -157,6 +164,16 @@ private struct AppColorPaletteDefinitions {
         .init(name: "Teal", hex: "#009988"),
         .init(name: "Grey", hex: "#BBBBBB"),
         .init(name: "Black", hex: "#000000")
+    ]
+    static let pastel: [AppColorPaletteEntry] = [
+        .init(name: "Rose", hex: "#F4A6B0"),
+        .init(name: "Peach", hex: "#F6C9A0"),
+        .init(name: "Lemon", hex: "#FDE9A0"),
+        .init(name: "Mint", hex: "#A8DFC0"),
+        .init(name: "Sky", hex: "#A0C4E8"),
+        .init(name: "Lavender", hex: "#C4A8D8"),
+        .init(name: "Lilac", hex: "#D8A8C8"),
+        .init(name: "Slate", hex: "#8B8B8B")
     ]
 }
 

@@ -1,7 +1,7 @@
 package com.vatoo.erick.shared
 
 enum class ColorPaletteType {
-    DEFAULT, OKABE_ITO, DEUTERANOPIA, PROTANOPIA, TRITANOPIA
+    DEFAULT, OKABE_ITO, DEUTERANOPIA, PROTANOPIA, TRITANOPIA, PASTEL
 }
 
 data class ColorEntry(val name: String, val hex: String)
@@ -64,6 +64,17 @@ object ColorPalettes {
         ColorEntry("Black", "#000000")
     )
 
+    private val pastelColors = listOf(
+        ColorEntry("Rose", "#F4A6B0"),
+        ColorEntry("Peach", "#F6C9A0"),
+        ColorEntry("Lemon", "#FDE9A0"),
+        ColorEntry("Mint", "#A8DFC0"),
+        ColorEntry("Sky", "#A0C4E8"),
+        ColorEntry("Lavender", "#C4A8D8"),
+        ColorEntry("Lilac", "#D8A8C8"),
+        ColorEntry("Slate", "#8B8B8B")
+    )
+
     fun getPalette(type: ColorPaletteType): List<ColorEntry> {
         return when (type) {
             ColorPaletteType.DEFAULT -> defaultColors
@@ -71,6 +82,7 @@ object ColorPalettes {
             ColorPaletteType.DEUTERANOPIA -> deuteranopiaColors
             ColorPaletteType.PROTANOPIA -> protanopiaColors
             ColorPaletteType.TRITANOPIA -> tritanopiaColors
+            ColorPaletteType.PASTEL -> pastelColors
         }
     }
 

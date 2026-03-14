@@ -72,6 +72,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
                     PreferencesManager.PALETTE_DEUTERANOPIA -> ColorPaletteType.DEUTERANOPIA
                     PreferencesManager.PALETTE_PROTANOPIA -> ColorPaletteType.PROTANOPIA
                     PreferencesManager.PALETTE_TRITANOPIA -> ColorPaletteType.TRITANOPIA
+                    PreferencesManager.PALETTE_PASTEL -> ColorPaletteType.PASTEL
                     else -> ColorPaletteType.OKABE_ITO
                 }
             } else {
