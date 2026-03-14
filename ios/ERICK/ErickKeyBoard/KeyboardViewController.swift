@@ -161,6 +161,9 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         // 使用我们在 Kotlin 里建好的工厂 (KeyboardFactory) 去拿货
         stateMachine = KeyboardFactory.shared.createEngine(delegate: self)
         
+        // 读取布局偏好并设置到状态机
+        applyLayoutPreference()
+        
         // --- UI 挂载与闭包打通 ---
         let containerView = KeyboardContainerView(viewModel: viewModel) { [weak self] dx, dy, isLeft, isDown, isUp in
             self?.handleTouch(dx: dx, dy: dy, isLeft: isLeft, isDown: isDown, isUp: isUp)
@@ -241,6 +244,20 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
             // 所以 DPAD_UP / DOWN 等在这里暂时忽略
             break
         }
+    }
+
+    private var isEfficiencyLayout: Bool {
+        return UserDefaults.standard.string(forKey: "layout_type") == "efficiency"
+    }
+
+    private func applyLayoutPreference() {
+        let layoutType: LayoutType = isEfficiencyLayout ? .efficiency : .logical
+        stateMachine.setLayoutType(layout: layoutType)
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        applyLayoutPreference()
     }
 
     private func syncVisualState(dx: Float, dy: Float, isLeft: Bool, isDown: Bool, isUp: Bool) {
@@ -359,24 +376,49 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         let innerColors = [Color(hex: "#1A1A1A"), Color(hex: "#8E24AA")]
 
         let items: [String]?
-        switch (direction, mode.usesShiftedSymbols) {
-        case (.n, false): items = ["a", "b", "c", "d", "e", "'"]
-        case (.ne, false): items = ["f", "g", "h", "i", "j", "/"]
-        case (.e, false): items = ["k", "l", "m", "n", "o", ";"]
-        case (.se, false): items = ["p", "q", "r", "s", "t", "-"]
-        case (.s, false): items = ["u", "v", "w", "x", "y", "="]
-        case (.sw, false): items = ["z", "\\", "[", "]", "`"]
-        case (.w, false): items = ["1", "2", "3", "4", "5"]
-        case (.nw, false): items = ["6", "7", "8", "9", "0"]
-        case (.n, true): items = ["A", "B", "C", "D", "E", "\""]
-        case (.ne, true): items = ["F", "G", "H", "I", "J", "?"]
-        case (.e, true): items = ["K", "L", "M", "N", "O", ":"]
-        case (.se, true): items = ["P", "Q", "R", "S", "T", "_"]
-        case (.s, true): items = ["U", "V", "W", "X", "Y", "+"]
-        case (.sw, true): items = ["Z", "|", "{", "}", "~"]
-        case (.w, true): items = ["!", "@", "#", "$", "%"]
-        case (.nw, true): items = ["^", "&", "*", "(", ")"]
-        case (.none, _): return nil
+
+        if isEfficiencyLayout {
+            // Efficiency layout — frequency-optimized character placement
+            switch (direction, mode.usesShiftedSymbols) {
+            case (.n, false):  items = ["t", "s", "g", "7", "=", "4", "k"]
+            case (.ne, false): items = ["i", "a", "n", "p", "/", "'"]
+            case (.e, false):  items = ["v", "l", "e", "r", "x", ";"]
+            case (.se, false): items = ["-", "y", "d", "o", "m"]
+            case (.s, false):  items = ["`", "6", "b", "f", "u"]
+            case (.sw, false): items = ["\\", "[", "]", "5", "q", "j"]
+            case (.w, false):  items = ["2", "3", "z"]
+            case (.nw, false): items = ["h", "w", "1", "8", "9", "0", "c"]
+            case (.n, true):   items = ["T", "S", "G", "&", "+", "$", "K"]
+            case (.ne, true):  items = ["I", "A", "N", "P", "?", "\""]
+            case (.e, true):   items = ["V", "L", "E", "R", "X", ":"]
+            case (.se, true):  items = ["_", "Y", "D", "O", "M"]
+            case (.s, true):   items = ["~", "^", "B", "F", "U"]
+            case (.sw, true):  items = ["|", "{", "}", "%", "Q", "J"]
+            case (.w, true):   items = ["@", "#", "Z"]
+            case (.nw, true):  items = ["H", "W", "!", "*", "(", ")", "C"]
+            case (.none, _):   return nil
+            }
+        } else {
+            // Logical layout (A–Z)
+            switch (direction, mode.usesShiftedSymbols) {
+            case (.n, false): items = ["a", "b", "c", "d", "e", "'"]
+            case (.ne, false): items = ["f", "g", "h", "i", "j", "/"]
+            case (.e, false): items = ["k", "l", "m", "n", "o", ";"]
+            case (.se, false): items = ["p", "q", "r", "s", "t", "-"]
+            case (.s, false): items = ["u", "v", "w", "x", "y", "="]
+            case (.sw, false): items = ["z", "\\", "[", "]", "`"]
+            case (.w, false): items = ["1", "2", "3", "4", "5"]
+            case (.nw, false): items = ["6", "7", "8", "9", "0"]
+            case (.n, true): items = ["A", "B", "C", "D", "E", "\""]
+            case (.ne, true): items = ["F", "G", "H", "I", "J", "?"]
+            case (.e, true): items = ["K", "L", "M", "N", "O", ":"]
+            case (.se, true): items = ["P", "Q", "R", "S", "T", "_"]
+            case (.s, true): items = ["U", "V", "W", "X", "Y", "+"]
+            case (.sw, true): items = ["Z", "|", "{", "}", "~"]
+            case (.w, true): items = ["!", "@", "#", "$", "%"]
+            case (.nw, true): items = ["^", "&", "*", "(", ")"]
+            case (.none, _): return nil
+            }
         }
 
         guard let items else { return nil }

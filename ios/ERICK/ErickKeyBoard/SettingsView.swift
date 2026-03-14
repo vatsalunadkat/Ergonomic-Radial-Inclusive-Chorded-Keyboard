@@ -39,12 +39,9 @@ struct SettingsView: View {
                 Section(header: Text("Keyboard Layout")) {
                     Picker("Layout Type", selection: $layoutType) {
                         Text("Logical (A–Z)").tag("logical")
-                        Text("Efficiency (Coming Soon)").tag("efficiency")
+                        Text("Efficiency").tag("efficiency")
                     }
                     .pickerStyle(.inline)
-                    .onChange(of: layoutType) { newValue in
-                        if newValue == "efficiency" { layoutType = "logical" }
-                    }
                 }
                 
                 // Appearance Section
