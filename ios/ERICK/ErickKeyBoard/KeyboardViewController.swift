@@ -17,6 +17,7 @@ class KeyboardViewModel: ObservableObject {
     @Published var leftDirection: WheelDirection = .none
     @Published var rightDirection: WheelDirection = .none
     @Published var keyboardMode: WheelMode = .normal
+    @Published var isEfficiency: Bool = false
 }
 
 // 2. SwiftUI 键盘容器：把左右两个摇杆横向排列
@@ -47,7 +48,8 @@ struct KeyboardContainerView: View {
                     JoystickView(
                         isRightSide: false,
                         activeDirection: viewModel.leftDirection,
-                        keyboardMode: viewModel.keyboardMode
+                        keyboardMode: viewModel.keyboardMode,
+                        isEfficiency: viewModel.isEfficiency
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, true, isDownOrMove, isUp)
                     }
@@ -56,7 +58,8 @@ struct KeyboardContainerView: View {
                     JoystickView(
                         isRightSide: true,
                         activeDirection: viewModel.rightDirection,
-                        keyboardMode: viewModel.keyboardMode
+                        keyboardMode: viewModel.keyboardMode,
+                        isEfficiency: viewModel.isEfficiency
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, false, isDownOrMove, isUp)
                     }
@@ -202,6 +205,7 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         viewModel.leftDirection = mirroredLeftDirection
         viewModel.rightDirection = mirroredRightDirection
         viewModel.keyboardMode = mirroredMode
+        viewModel.isEfficiency = isEfficiencyLayout
         updatePreviewState()
     }
 
@@ -246,13 +250,16 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         }
     }
 
+    private static let appGroupDefaults = UserDefaults(suiteName: "group.com.vatoo.erick") ?? .standard
+
     private var isEfficiencyLayout: Bool {
-        return UserDefaults.standard.string(forKey: "layout_type") == "efficiency"
+        return Self.appGroupDefaults.string(forKey: "layout_type") == "efficiency"
     }
 
     private func applyLayoutPreference() {
         let layoutType: LayoutType = isEfficiencyLayout ? .efficiency : .logical
         stateMachine.setLayoutType(layout: layoutType)
+        viewModel.isEfficiency = isEfficiencyLayout
     }
 
     override func viewWillAppear(_ animated: Bool) {

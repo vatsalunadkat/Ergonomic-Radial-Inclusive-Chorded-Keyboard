@@ -45,21 +45,23 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
 
     // 引入我们在 Shared 模块里写的跨平台大脑
     private lateinit var stateMachine: KeyboardStateMachine
-    private lateinit var layoutPreferences: LayoutPreferences
+    private lateinit var preferencesManager: PreferencesManager
 
     override fun onCreate() {
         super.onCreate()
         // 输入法创建时，组装大脑，并把自己 (this) 作为代理传进去
         stateMachine = KeyboardStateMachine(this, serviceScope)
 
-        // 监听布局偏好变化，实时切换布局
-        layoutPreferences = LayoutPreferences(this)
-        layoutPreferences.selectedLayout.onEach { layout ->
+        // 监听布局偏好变化，实时切换布局 (使用与 SettingsScreen 相同的 PreferencesManager)
+        preferencesManager = PreferencesManager(this)
+        preferencesManager.layoutType.onEach { layout ->
             val layoutType = when (layout) {
-                KeyboardLayout.EFFICIENCY -> LayoutType.EFFICIENCY
+                PreferencesManager.LAYOUT_EFFICIENCY -> LayoutType.EFFICIENCY
                 else -> LayoutType.LOGICAL
             }
             stateMachine.setLayoutType(layoutType)
+            if (::leftJoystick.isInitialized) leftJoystick.layoutType = layoutType
+            if (::rightJoystick.isInitialized) rightJoystick.layoutType = layoutType
         }.launchIn(serviceScope)
     }
 
@@ -74,6 +76,11 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         leftJoystick = view.findViewById(R.id.left_joystick)
         rightJoystick = view.findViewById(R.id.right_joystick)
         rightJoystick.isRightSide = true
+
+        // Apply current layout type to the newly created joystick views
+        val currentLayout = stateMachine.currentLayoutType
+        leftJoystick.layoutType = currentLayout
+        rightJoystick.layoutType = currentLayout
 
         previewContainer = view.findViewById(R.id.live_preview_container)
         previewText = view.findViewById(R.id.live_preview_text)
