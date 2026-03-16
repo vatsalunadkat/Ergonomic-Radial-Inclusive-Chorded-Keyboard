@@ -17,6 +17,8 @@ class KeyboardViewModel: ObservableObject {
     @Published var leftDirection: WheelDirection = .none
     @Published var rightDirection: WheelDirection = .none
     @Published var keyboardMode: WheelMode = .normal
+    @Published var isEfficiency: Bool = false
+    @Published var colorPaletteKey: String = "default"
 }
 
 // 2. SwiftUI 键盘容器：把左右两个摇杆横向排列
@@ -47,7 +49,9 @@ struct KeyboardContainerView: View {
                     JoystickView(
                         isRightSide: false,
                         activeDirection: viewModel.leftDirection,
-                        keyboardMode: viewModel.keyboardMode
+                        keyboardMode: viewModel.keyboardMode,
+                        isEfficiency: viewModel.isEfficiency,
+                        colorPaletteKey: viewModel.colorPaletteKey
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, true, isDownOrMove, isUp)
                     }
@@ -56,7 +60,9 @@ struct KeyboardContainerView: View {
                     JoystickView(
                         isRightSide: true,
                         activeDirection: viewModel.rightDirection,
-                        keyboardMode: viewModel.keyboardMode
+                        keyboardMode: viewModel.keyboardMode,
+                        isEfficiency: viewModel.isEfficiency,
+                        colorPaletteKey: viewModel.colorPaletteKey
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, false, isDownOrMove, isUp)
                     }
@@ -164,6 +170,9 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
             layoutType: LayoutType.logical
         )
         
+        // 读取布局偏好并设置到状态机
+        applyLayoutPreference()
+        
         // --- UI 挂载与闭包打通 ---
         let containerView = KeyboardContainerView(viewModel: viewModel) { [weak self] dx, dy, isLeft, isDown, isUp in
             self?.handleTouch(dx: dx, dy: dy, isLeft: isLeft, isDown: isDown, isUp: isUp)
@@ -202,6 +211,7 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         viewModel.leftDirection = mirroredLeftDirection
         viewModel.rightDirection = mirroredRightDirection
         viewModel.keyboardMode = mirroredMode
+        viewModel.isEfficiency = isEfficiencyLayout
         updatePreviewState()
     }
 
@@ -244,6 +254,30 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
             // 所以 DPAD_UP / DOWN 等在这里暂时忽略
             break
         }
+    }
+
+    private static let appGroupDefaults = UserDefaults(suiteName: "group.com.vatoo.erick") ?? .standard
+
+    private var isEfficiencyLayout: Bool {
+        return Self.appGroupDefaults.string(forKey: "layout_type") == "efficiency"
+    }
+
+    private var currentColorPaletteKey: String {
+        let enabled = Self.appGroupDefaults.bool(forKey: "colorblind_mode")
+        guard enabled else { return "default" }
+        return Self.appGroupDefaults.string(forKey: "color_palette") ?? "okabe_ito"
+    }
+
+    private func applyLayoutPreference() {
+        let layoutType: LayoutType = isEfficiencyLayout ? .efficiency : .logical
+        stateMachine.setLayoutType(layout: layoutType)
+        viewModel.isEfficiency = isEfficiencyLayout
+        viewModel.colorPaletteKey = currentColorPaletteKey
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        applyLayoutPreference()
     }
 
     private func syncVisualState(dx: Float, dy: Float, isLeft: Bool, isDown: Bool, isUp: Bool) {
@@ -357,29 +391,57 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
     }
 
     private func previewItems(for direction: WheelDirection, mode: WheelMode) -> [KeyboardPreviewItem]? {
-        let outerColors = [Color(hex: "#E53935"), Color(hex: "#FB8C00"), Color(hex: "#F6C945")]
-        let middleColors = [Color(hex: "#43A047"), Color(hex: "#1E88E5"), Color(hex: "#5E35B1")]
-        let innerColors = [Color(hex: "#1A1A1A"), Color(hex: "#8E24AA")]
+        let palette = ColorPaletteDefinitions.palette(for: currentColorPaletteKey)
+        // Palette positions: 0=N, 1=NE, 2=E, 3=SE, 4=S, 5=SW, 6=W, 7=NW
+        // Left dial layout: outer=[0,1,2], middle=[3,4,5], inner=[6,7]
+        let outerColors = (0..<3).map { Color(hex: palette[$0].hex) }
+        let middleColors = (3..<6).map { Color(hex: palette[$0].hex) }
+        let innerColors = (6..<8).map { Color(hex: palette[$0].hex) }
 
         let items: [String]?
-        switch (direction, mode.usesShiftedSymbols) {
-        case (.n, false): items = ["a", "b", "c", "d", "e", "'"]
-        case (.ne, false): items = ["f", "g", "h", "i", "j", "/"]
-        case (.e, false): items = ["k", "l", "m", "n", "o", ";"]
-        case (.se, false): items = ["p", "q", "r", "s", "t", "-"]
-        case (.s, false): items = ["u", "v", "w", "x", "y", "="]
-        case (.sw, false): items = ["z", "\\", "[", "]", "`"]
-        case (.w, false): items = ["1", "2", "3", "4", "5"]
-        case (.nw, false): items = ["6", "7", "8", "9", "0"]
-        case (.n, true): items = ["A", "B", "C", "D", "E", "\""]
-        case (.ne, true): items = ["F", "G", "H", "I", "J", "?"]
-        case (.e, true): items = ["K", "L", "M", "N", "O", ":"]
-        case (.se, true): items = ["P", "Q", "R", "S", "T", "_"]
-        case (.s, true): items = ["U", "V", "W", "X", "Y", "+"]
-        case (.sw, true): items = ["Z", "|", "{", "}", "~"]
-        case (.w, true): items = ["!", "@", "#", "$", "%"]
-        case (.nw, true): items = ["^", "&", "*", "(", ")"]
-        case (.none, _): return nil
+
+        if isEfficiencyLayout {
+            // Efficiency layout — frequency-optimized character placement
+            switch (direction, mode.usesShiftedSymbols) {
+            case (.n, false):  items = ["t", "s", "g", "7", "=", "4", "k"]
+            case (.ne, false): items = ["i", "a", "n", "p", "/", "'"]
+            case (.e, false):  items = ["v", "l", "e", "r", "x", ";"]
+            case (.se, false): items = ["-", "y", "d", "o", "m"]
+            case (.s, false):  items = ["`", "6", "b", "f", "u"]
+            case (.sw, false): items = ["\\", "[", "]", "5", "q", "j"]
+            case (.w, false):  items = ["2", "3", "z"]
+            case (.nw, false): items = ["h", "w", "1", "8", "9", "0", "c"]
+            case (.n, true):   items = ["T", "S", "G", "&", "+", "$", "K"]
+            case (.ne, true):  items = ["I", "A", "N", "P", "?", "\""]
+            case (.e, true):   items = ["V", "L", "E", "R", "X", ":"]
+            case (.se, true):  items = ["_", "Y", "D", "O", "M"]
+            case (.s, true):   items = ["~", "^", "B", "F", "U"]
+            case (.sw, true):  items = ["|", "{", "}", "%", "Q", "J"]
+            case (.w, true):   items = ["@", "#", "Z"]
+            case (.nw, true):  items = ["H", "W", "!", "*", "(", ")", "C"]
+            case (.none, _):   return nil
+            }
+        } else {
+            // Logical layout (A–Z)
+            switch (direction, mode.usesShiftedSymbols) {
+            case (.n, false): items = ["a", "b", "c", "d", "e", "'"]
+            case (.ne, false): items = ["f", "g", "h", "i", "j", "/"]
+            case (.e, false): items = ["k", "l", "m", "n", "o", ";"]
+            case (.se, false): items = ["p", "q", "r", "s", "t", "-"]
+            case (.s, false): items = ["u", "v", "w", "x", "y", "="]
+            case (.sw, false): items = ["z", "\\", "[", "]", "`"]
+            case (.w, false): items = ["1", "2", "3", "4", "5"]
+            case (.nw, false): items = ["6", "7", "8", "9", "0"]
+            case (.n, true): items = ["A", "B", "C", "D", "E", "\""]
+            case (.ne, true): items = ["F", "G", "H", "I", "J", "?"]
+            case (.e, true): items = ["K", "L", "M", "N", "O", ":"]
+            case (.se, true): items = ["P", "Q", "R", "S", "T", "_"]
+            case (.s, true): items = ["U", "V", "W", "X", "Y", "+"]
+            case (.sw, true): items = ["Z", "|", "{", "}", "~"]
+            case (.w, true): items = ["!", "@", "#", "$", "%"]
+            case (.nw, true): items = ["^", "&", "*", "(", ")"]
+            case (.none, _): return nil
+            }
         }
 
         guard let items else { return nil }
