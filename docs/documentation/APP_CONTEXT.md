@@ -389,4 +389,4 @@ leftHandedMode: false
 ---
 
 **Document Maintained By**: ERICK Development Team  
-**For Questions**: See [GitHub Issues](https://github.com/vatsalunadkat/Ergonomic-Radial-Inclusive-Chorded-Keyboard/issues)
+**For Questions**: See [GitHub Issues](https://github.com/vatsalunadkat/ERICKeyboard/issues)
