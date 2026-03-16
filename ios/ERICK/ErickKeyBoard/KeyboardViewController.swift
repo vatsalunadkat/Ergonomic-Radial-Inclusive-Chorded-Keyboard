@@ -159,7 +159,10 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         // Kotlin 的全局函数在 Swift 里会自动被放到带 'Kt' 后缀的命名空间下
 //        stateMachine = // Swift 现在会极其自然地调用我们刚刚写的那个次级构造函数！
         // 使用我们在 Kotlin 里建好的工厂 (KeyboardFactory) 去拿货
-        stateMachine = KeyboardFactory.shared.createEngine(delegate: self)
+        stateMachine = KeyboardFactory.shared.createEngine(
+            delegate: self,
+            layoutType: LayoutType.logical
+        )
         
         // --- UI 挂载与闭包打通 ---
         let containerView = KeyboardContainerView(viewModel: viewModel) { [weak self] dx, dy, isLeft, isDown, isUp in
@@ -348,7 +351,7 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         case .e: return 2
         case .se: return 3
         case .s: return 4
-        case .sw: return 5
+        case .nw: return 5
         default: return nil
         }
     }

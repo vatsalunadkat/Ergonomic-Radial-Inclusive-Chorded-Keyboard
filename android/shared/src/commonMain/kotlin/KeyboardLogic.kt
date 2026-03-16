@@ -76,7 +76,9 @@ class KeyboardLogic {
     private fun getRightIndex(rightDir: Direction): Int {
         return when (rightDir) {
             Direction.N -> 0; Direction.NE -> 1; Direction.E -> 2
-            Direction.SE -> 3; Direction.S -> 4; Direction.SW -> 5
+            Direction.SE -> 3; Direction.S -> 4
+            // Keep the 6th chord slot aligned with the right wheel's black sector.
+            Direction.NW -> 5
             else -> -1
         }
     }
