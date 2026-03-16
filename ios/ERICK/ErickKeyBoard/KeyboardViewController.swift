@@ -380,13 +380,15 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
 
     private func previewIndex(for direction: WheelDirection) -> Int? {
         switch direction {
-        case .n: return 0
+        case .n:  return 0
         case .ne: return 1
-        case .e: return 2
+        case .e:  return 2
         case .se: return 3
-        case .s: return 4
-        case .nw: return 5
-        default: return nil
+        case .s:  return 4
+        case .sw: return 5
+        case .w:  return 6
+        case .nw: return 7
+        default:  return nil
         }
     }
 
