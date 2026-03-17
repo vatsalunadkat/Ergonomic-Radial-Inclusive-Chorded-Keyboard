@@ -51,6 +51,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
     private lateinit var preferencesManager: PreferencesManager
     private lateinit var customLayoutManager: CustomLayoutManager
     private var currentThemeMode: String = PreferencesManager.THEME_SYSTEM
+    private var currentFontPreference: String = PreferencesManager.FONT_SYSTEM
     private var keyboardRootView: View? = null
 
     override fun onCreate() {
@@ -114,6 +115,12 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
             currentThemeMode = mode
             applyKeyboardTheme()
         }.launchIn(serviceScope)
+
+        // Monitor font preference changes
+        preferencesManager.fontPreference.onEach { font ->
+            currentFontPreference = font
+            applyKeyboardFont()
+        }.launchIn(serviceScope)
     }
 
     override fun onDestroy() {
@@ -147,6 +154,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
 
         keyboardRootView = view
         applyKeyboardTheme()
+        applyKeyboardFont()
 
         leftJoystick.setOnTouchListener { v, event ->
             v.performClick()
@@ -239,7 +247,34 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         }
     }
 
+    private fun resolveTypeface(): Typeface? {
+        return when (currentFontPreference) {
+            PreferencesManager.FONT_VERDANA -> Typeface.create("sans-serif", Typeface.NORMAL)
+            PreferencesManager.FONT_GEORGIA -> Typeface.create("serif", Typeface.NORMAL)
+            PreferencesManager.FONT_OPENDYSLEXIC -> {
+                try {
+                    resources.getFont(R.font.opendyslexic_regular)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            else -> null // system default
+        }
+    }
+
+    private fun applyKeyboardFont() {
+        val tf = resolveTypeface()
+        if (::leftJoystick.isInitialized) leftJoystick.customTypeface = tf
+        if (::rightJoystick.isInitialized) rightJoystick.customTypeface = tf
+        // Preview bar TextViews will pick up the font on next updateLivePreview() rebuild
+        if (::previewCapsule.isInitialized) {
+            previewCapsule.removeAllViews()
+        }
+        updateLivePreview()
+    }
+
     private fun updateLivePreview() {
+        if (!::leftJoystick.isInitialized || !::rightJoystick.isInitialized || !::previewContainer.isInitialized) return
         // In left-handed mode the letter-group dial is the physical right joystick,
         // and the color dial is the physical left joystick.
         val isLH = stateMachine.leftHandedMode
@@ -295,7 +330,8 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
             for (i in previewChars.indices) {
                 val tv = TextView(this).apply {
                     textSize = 22f
-                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    val baseTf = resolveTypeface() ?: Typeface.DEFAULT
+                    typeface = Typeface.create(baseTf, Typeface.BOLD)
                     gravity = Gravity.CENTER
                     minWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20f, resources.displayMetrics).toInt()
                     setShadowLayer(1.5f, 0f, 0f, Color.argb(166, 255, 255, 255))
@@ -320,7 +356,13 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
             val isHighlighted = (i == highlightIndex)
             val targetSize = if (isHighlighted) 27f else 22f
             val targetScale = if (isHighlighted) 1.08f else 1.0f
-            val targetTypeface = if (isHighlighted) Typeface.create(Typeface.DEFAULT, 900, false) else Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            val targetTypeface = if (isHighlighted) {
+                val baseTf = resolveTypeface() ?: Typeface.DEFAULT
+                Typeface.create(baseTf, 900, false)
+            } else {
+                val baseTf = resolveTypeface() ?: Typeface.DEFAULT
+                Typeface.create(baseTf, Typeface.BOLD)
+            }
 
             // Animate size and scale
             if ((i == lastHighlightedIndex || i == highlightIndex) && lastHighlightedIndex != highlightIndex) {

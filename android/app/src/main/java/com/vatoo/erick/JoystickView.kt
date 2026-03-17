@@ -54,6 +54,15 @@ class JoystickView @JvmOverloads constructor(
                 invalidate()
             }
         }
+    var customTypeface: Typeface? = null
+        set(value) {
+            if (field != value) {
+                field = value
+                charTextPaint.typeface = value ?: Typeface.DEFAULT_BOLD
+                labelTextPaint.typeface = value ?: Typeface.DEFAULT
+                invalidate()
+            }
+        }
     private var previewText: String = ""
 
     private var centerX = 0f

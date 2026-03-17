@@ -21,6 +21,25 @@ class KeyboardViewModel: ObservableObject {
     @Published var colorPaletteKey: String = "default"
     @Published var isLeftHanded: Bool = false
     @Published var isDarkMode: Bool = false
+    @Published var fontPreference: String = "system"
+
+    var resolvedFont: Font {
+        switch fontPreference {
+        case "verdana": return .custom("Verdana", size: 14)
+        case "georgia": return .custom("Georgia", size: 14)
+        case "opendyslexic": return .custom("OpenDyslexic", size: 14)
+        default: return .system(size: 14)
+        }
+    }
+
+    func resolvedUIFont(size: CGFloat) -> UIFont {
+        switch fontPreference {
+        case "verdana": return UIFont(name: "Verdana", size: size) ?? .systemFont(ofSize: size)
+        case "georgia": return UIFont(name: "Georgia", size: size) ?? .systemFont(ofSize: size)
+        case "opendyslexic": return UIFont(name: "OpenDyslexic", size: size) ?? .systemFont(ofSize: size)
+        default: return .systemFont(ofSize: size)
+        }
+    }
 }
 
 // 2. SwiftUI 键盘容器：把左右两个摇杆横向排列
@@ -53,7 +72,8 @@ struct KeyboardContainerView: View {
                         activeDirection: viewModel.leftDirection,
                         keyboardMode: viewModel.keyboardMode,
                         isEfficiency: viewModel.isEfficiency,
-                        colorPaletteKey: viewModel.colorPaletteKey
+                        colorPaletteKey: viewModel.colorPaletteKey,
+                        fontPreference: viewModel.fontPreference
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, true, isDownOrMove, isUp)
                     }
@@ -64,7 +84,8 @@ struct KeyboardContainerView: View {
                         activeDirection: viewModel.rightDirection,
                         keyboardMode: viewModel.keyboardMode,
                         isEfficiency: viewModel.isEfficiency,
-                        colorPaletteKey: viewModel.colorPaletteKey
+                        colorPaletteKey: viewModel.colorPaletteKey,
+                        fontPreference: viewModel.fontPreference
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, false, isDownOrMove, isUp)
                     }
@@ -83,7 +104,8 @@ struct KeyboardContainerView: View {
                 KeyboardPreviewBar(
                     items: viewModel.previewItems,
                     highlightedIndex: viewModel.highlightedPreviewIndex,
-                    isDarkMode: viewModel.isDarkMode
+                    isDarkMode: viewModel.isDarkMode,
+                    fontPreference: viewModel.fontPreference
                 )
                     .padding(.top, 8)
             }
@@ -121,16 +143,29 @@ private struct KeyboardPreviewBar: View {
     let items: [KeyboardPreviewItem]
     let highlightedIndex: Int?
     var isDarkMode: Bool = false
+    var fontPreference: String = "system"
+
+    private func resolvedPreviewFont(size: CGFloat, weight: Font.Weight) -> Font {
+        switch fontPreference {
+        case "verdana":
+            return .custom("Verdana", size: size).weight(weight)
+        case "georgia":
+            return .custom("Georgia", size: size).weight(weight)
+        case "opendyslexic":
+            return .custom("OpenDyslexic", size: size).weight(weight)
+        default:
+            return .system(size: size, weight: weight, design: .rounded)
+        }
+    }
 
     var body: some View {
         HStack(spacing: 8) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 Text(item.text)
                     .font(
-                        .system(
+                        resolvedPreviewFont(
                             size: highlightedIndex == index ? 27 : 22,
-                            weight: highlightedIndex == index ? .heavy : .bold,
-                            design: .rounded
+                            weight: highlightedIndex == index ? .heavy : .bold
                         )
                     )
                     .foregroundColor(item.color)
@@ -327,6 +362,9 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         default:
             viewModel.isDarkMode = self.traitCollection.userInterfaceStyle == .dark
         }
+
+        // Apply font preference
+        viewModel.fontPreference = Self.appGroupDefaults.string(forKey: "font_preference") ?? "system"
     }
 
     override func viewWillAppear(_ animated: Bool) {

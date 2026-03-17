@@ -56,6 +56,7 @@ struct JoystickView: View {
     var keyboardMode: WheelMode
     var isEfficiency: Bool = false
     var colorPaletteKey: String = "default"
+    var fontPreference: String = "system"
     var onTouch: ((Float, Float, Bool, Bool) -> Void)?
 
     @State private var thumbOffset: CGSize = .zero
@@ -69,9 +70,9 @@ struct JoystickView: View {
 
             ZStack {
                 if isRightSide {
-                    RightWheelBackground(activeDirection: activeDirection, keyboardMode: keyboardMode, colorPaletteKey: colorPaletteKey)
+                    RightWheelBackground(activeDirection: activeDirection, keyboardMode: keyboardMode, colorPaletteKey: colorPaletteKey, fontPreference: fontPreference)
                 } else {
-                    LeftWheelBackground(activeDirection: activeDirection, keyboardMode: keyboardMode, isEfficiency: isEfficiency, colorPaletteKey: colorPaletteKey)
+                    LeftWheelBackground(activeDirection: activeDirection, keyboardMode: keyboardMode, isEfficiency: isEfficiency, colorPaletteKey: colorPaletteKey, fontPreference: fontPreference)
                 }
 
                 ZStack {
@@ -124,6 +125,7 @@ private struct LeftWheelBackground: View {
     let keyboardMode: WheelMode
     var isEfficiency: Bool = false
     var colorPaletteKey: String = "default"
+    var fontPreference: String = "system"
 
     private var outerColors: [String] {
         let p = ColorPaletteDefinitions.palette(for: colorPaletteKey)
@@ -284,7 +286,7 @@ private struct LeftWheelBackground: View {
                     return .white
                 }()
                 Text(item)
-                    .font(.system(size: metrics.fontSize, weight: .bold, design: .rounded))
+                    .font(resolvedCharFont(size: metrics.fontSize))
                     .foregroundStyle(textColor)
                     .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
                     .minimumScaleFactor(0.45)
@@ -293,6 +295,15 @@ private struct LeftWheelBackground: View {
                     .position(labelPoint)
                     .opacity(opacity)
             }
+        }
+    }
+
+    private func resolvedCharFont(size: CGFloat) -> Font {
+        switch fontPreference {
+        case "verdana": return .custom("Verdana", size: size).bold()
+        case "georgia": return .custom("Georgia", size: size).bold()
+        case "opendyslexic": return .custom("OpenDyslexic", size: size).bold()
+        default: return .system(size: size, weight: .bold, design: .rounded)
         }
     }
 
@@ -385,6 +396,7 @@ private struct RightWheelBackground: View {
     let activeDirection: WheelDirection
     let keyboardMode: WheelMode
     var colorPaletteKey: String = "default"
+    var fontPreference: String = "system"
 
     private var palette: [ColorPaletteEntry] {
         ColorPaletteDefinitions.palette(for: colorPaletteKey)
