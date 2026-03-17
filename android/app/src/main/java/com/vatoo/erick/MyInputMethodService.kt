@@ -21,14 +21,13 @@ import kotlinx.coroutines.flow.onEach
 import android.content.Intent
 import android.widget.ImageButton
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.graphics.Color
-import android.text.SpannableString
-import android.text.SpannableStringBuilder
-import android.text.style.ForegroundColorSpan
-import android.text.style.RelativeSizeSpan
-import android.text.style.StyleSpan
 import android.graphics.Typeface
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.animation.AccelerateDecelerateInterpolator
 import com.vatoo.erick.shared.ColorPalettes
 import com.vatoo.erick.shared.Direction
 
@@ -39,7 +38,8 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
     private lateinit var leftJoystick: JoystickView
     private lateinit var rightJoystick: JoystickView
     private lateinit var previewContainer: FrameLayout
-    private lateinit var previewText: TextView
+    private lateinit var previewCapsule: LinearLayout
+    private var lastHighlightedIndex: Int = -1
 
     // --- 协程生命周期管理 ---
     // 必须给状态机提供一个作用域，当输入法关闭时，销毁所有倒计时任务防止内存泄漏
@@ -135,7 +135,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         rightJoystick.colorPaletteType = currentPalette
 
         previewContainer = view.findViewById(R.id.live_preview_container)
-        previewText = view.findViewById(R.id.live_preview_text)
+        previewCapsule = view.findViewById(R.id.live_preview_capsule)
 
         leftJoystick.setOnTouchListener { v, event ->
             v.performClick()
@@ -197,65 +197,100 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         val letterDir = if (isLH) rightJoystick.activeDirection else leftJoystick.activeDirection
         val colorDir  = if (isLH) leftJoystick.activeDirection  else rightJoystick.activeDirection
 
-        if (letterDir == Direction.NONE) {
-            previewContainer.visibility = View.INVISIBLE
-            return
-        }
-
-        previewContainer.visibility = View.VISIBLE
-
-        val chars = stateMachine.getCharactersForDirection(letterDir)
-        if (chars.isEmpty()) {
-            previewText.text = ""
-            return
-        }
-
-        val builder = SpannableStringBuilder()
-
         // 8 possible right directions in clockwise order
         val allRightDirs = listOf(
             Direction.N, Direction.NE, Direction.E, Direction.SE,
             Direction.S, Direction.SW, Direction.W, Direction.NW
         )
 
-        for (i in chars.indices) {
-            val charStr = chars[i]
-            if (charStr.isBlank()) continue
+        // Determine preview data: left-dial hold, right-dial hold, or nothing
+        data class PreviewChar(val text: String, val colorHex: String, val dirForColor: Direction)
+        val previewChars = mutableListOf<PreviewChar>()
+        var highlightIndex = -1
 
-            val dirForChar = allRightDirs.getOrNull(i) ?: Direction.NONE
+        if (letterDir != Direction.NONE) {
+            // Left-dial hold: show all characters in that group
+            val chars = stateMachine.getCharactersForDirection(letterDir)
+            for (i in chars.indices) {
+                val charStr = chars[i]
+                if (charStr.isBlank()) continue
+                val dirForChar = allRightDirs.getOrNull(i) ?: Direction.NONE
+                val colorHex = ColorPalettes.getColorForDirectionHex(dirForChar, stateMachine.currentPaletteType)
+                previewChars.add(PreviewChar(charStr, colorHex, dirForChar))
+                if (dirForChar == colorDir && colorDir != Direction.NONE) {
+                    highlightIndex = previewChars.size - 1
+                }
+            }
+        } else if (colorDir != Direction.NONE) {
+            // Right-dial-only hold: show character at this color position across all left-dial groups
+            val positionChars = stateMachine.getCharactersAtPosition(colorDir)
+            val colorHex = ColorPalettes.getColorForDirectionHex(colorDir, stateMachine.currentPaletteType)
+            for ((_, ch) in positionChars) {
+                previewChars.add(PreviewChar(ch, colorHex, colorDir))
+            }
+            // No specific highlight for right-dial-only preview
+        }
 
-            val start = builder.length
-            builder.append(charStr)
-            builder.append("  ") // spacing
+        if (previewChars.isEmpty()) {
+            previewContainer.visibility = View.INVISIBLE
+            lastHighlightedIndex = -1
+            return
+        }
 
-            val colorHex = ColorPalettes.getColorForDirectionHex(dirForChar, stateMachine.currentPaletteType)
-            val color = Color.parseColor(colorHex)
+        previewContainer.visibility = View.VISIBLE
 
-            builder.setSpan(
-                ForegroundColorSpan(color),
-                start,
-                start + charStr.length,
-                SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-
-            // Enlarge if this is the active color direction
-            if (dirForChar == colorDir && colorDir != Direction.NONE) {
-                builder.setSpan(
-                    RelativeSizeSpan(1.5f),
-                    start,
-                    start + charStr.length,
-                    SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                builder.setSpan(
-                    StyleSpan(Typeface.BOLD),
-                    start,
-                    start + charStr.length,
-                    SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+        // Rebuild capsule child views if count changed
+        if (previewCapsule.childCount != previewChars.size) {
+            previewCapsule.removeAllViews()
+            val spacingPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8f, resources.displayMetrics).toInt()
+            for (i in previewChars.indices) {
+                val tv = TextView(this).apply {
+                    textSize = 22f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    gravity = Gravity.CENTER
+                    minWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20f, resources.displayMetrics).toInt()
+                    setShadowLayer(1.5f, 0f, 0f, Color.argb(166, 255, 255, 255))
+                }
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    if (i > 0) marginStart = spacingPx
+                }
+                previewCapsule.addView(tv, lp)
             }
         }
 
-        previewText.text = builder
+        // Update each character view
+        for (i in previewChars.indices) {
+            val tv = previewCapsule.getChildAt(i) as? TextView ?: continue
+            val pc = previewChars[i]
+            tv.text = pc.text
+            tv.setTextColor(Color.parseColor(pc.colorHex))
+
+            val isHighlighted = (i == highlightIndex)
+            val targetSize = if (isHighlighted) 27f else 22f
+            val targetScale = if (isHighlighted) 1.08f else 1.0f
+            val targetTypeface = if (isHighlighted) Typeface.create(Typeface.DEFAULT, 900, false) else Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+
+            // Animate size and scale
+            if ((i == lastHighlightedIndex || i == highlightIndex) && lastHighlightedIndex != highlightIndex) {
+                tv.animate()
+                    .scaleX(targetScale)
+                    .scaleY(targetScale)
+                    .setDuration(120)
+                    .setInterpolator(AccelerateDecelerateInterpolator())
+                    .start()
+                tv.textSize = targetSize
+            } else {
+                tv.scaleX = targetScale
+                tv.scaleY = targetScale
+                tv.textSize = targetSize
+            }
+            tv.typeface = targetTypeface
+        }
+
+        lastHighlightedIndex = highlightIndex
     }
 
     // ==========================================

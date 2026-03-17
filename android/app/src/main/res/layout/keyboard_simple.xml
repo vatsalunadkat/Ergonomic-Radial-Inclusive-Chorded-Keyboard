@@ -15,17 +15,18 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:visibility="invisible"
-            android:background="#D0D6DC">
-            
-            <TextView
-                android:id="@+id/live_preview_text"
+            android:gravity="center">
+
+            <LinearLayout
+                android:id="@+id/live_preview_capsule"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:textSize="28sp"
-                android:textStyle="bold"
-                android:textColor="#212121"
-                android:letterSpacing="0.2" />
+                android:orientation="horizontal"
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="10dp"
+                android:elevation="6dp"
+                android:background="@drawable/preview_capsule_bg" />
         </FrameLayout>
 
         <LinearLayout
