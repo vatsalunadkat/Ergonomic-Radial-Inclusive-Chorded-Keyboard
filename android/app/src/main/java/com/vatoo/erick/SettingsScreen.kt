@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -86,6 +87,8 @@ fun SettingsScreen(
         )
         is SettingsNav.CustomLayoutEditor -> CustomLayoutEditorScreen(
             layout = nav.layout,
+            colorblindMode = colorblindMode,
+            colorPalette = colorPalette,
             onSave = { updated ->
                 customLayoutManager.save(updated)
                 customLayouts = customLayoutManager.getAll()
@@ -734,13 +737,25 @@ private val DIRECTION_LABELS = mapOf(
 @Composable
 fun CustomLayoutEditorScreen(
     layout: CustomLayout,
+    colorblindMode: Boolean = false,
+    colorPalette: String = "",
     onSave: (CustomLayout) -> Unit,
     onBack: () -> Unit
 ) {
+    val paletteType = if (colorblindMode) {
+        when (colorPalette) {
+            PreferencesManager.PALETTE_DEUTERANOPIA -> ColorPaletteType.DEUTERANOPIA
+            PreferencesManager.PALETTE_PROTANOPIA -> ColorPaletteType.PROTANOPIA
+            PreferencesManager.PALETTE_TRITANOPIA -> ColorPaletteType.TRITANOPIA
+            PreferencesManager.PALETTE_PASTEL -> ColorPaletteType.PASTEL
+            else -> ColorPaletteType.OKABE_ITO
+        }
+    } else ColorPaletteType.DEFAULT
+    val palette = ColorPalettes.getPalette(paletteType)
     // Mutable state for editing
     var name by remember { mutableStateOf(layout.name) }
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Normal Chords", "Shifted Chords", "Single Swipe", "Double Swipe")
+    val tabs = listOf("Normal Chords", "Shifted Chords", "Single Swipe")
 
     // Mutable chord maps: Direction -> MutableList<String>
     val normalChords = remember {
@@ -766,20 +781,12 @@ fun CustomLayoutEditorScreen(
         }
     }
 
-    // Double-swipe map
-    val doubleSwipe = remember {
-        mutableStateMapOf<Direction, InputAction?>().apply {
-            layout.doubleSwipeMap.forEach { (d, a) -> put(d, a) }
-        }
-    }
-
     fun buildLayout(): CustomLayout = layout.copy(
         name = name.trim().ifEmpty { "Custom Layout" },
         normalChordMap = normalChords.toMap(),
         shiftedChordMap = shiftedChords.toMap(),
         singleSwipeNormalMap = singleSwipeNormal.toMap(),
-        singleSwipeShiftedMap = singleSwipeShifted.toMap(),
-        doubleSwipeMap = doubleSwipe.toMap()
+        singleSwipeShiftedMap = singleSwipeShifted.toMap()
     )
 
     Scaffold(
@@ -829,10 +836,9 @@ fun CustomLayoutEditorScreen(
 
             // Tab content
             when (selectedTab) {
-                0 -> ChordMapEditor(normalChords, "Normal")
-                1 -> ChordMapEditor(shiftedChords, "Shifted")
+                0 -> ChordMapEditor(normalChords, "Normal", palette)
+                1 -> ChordMapEditor(shiftedChords, "Shifted", palette)
                 2 -> SingleSwipeEditor(singleSwipeNormal, singleSwipeShifted)
-                3 -> DoubleSwipeEditor(doubleSwipe)
             }
         }
     }
@@ -841,7 +847,8 @@ fun CustomLayoutEditorScreen(
 @Composable
 private fun ChordMapEditor(
     chords: MutableMap<Direction, List<String>>,
-    label: String
+    label: String,
+    palette: List<com.vatoo.erick.shared.ColorEntry>
 ) {
     var expandedDir by remember { mutableStateOf<Direction?>(null) }
 
@@ -887,14 +894,23 @@ private fun ChordMapEditor(
                         // 8 text fields for the 8 right-dial positions
                         val rightLabels = listOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
                         for (i in 0 until 8) {
+                            val colorHex = palette.getOrNull(i)?.hex ?: "#FAFAFA"
+                            val bgColor = Color(android.graphics.Color.parseColor(colorHex))
+                            val colorName = palette.getOrNull(i)?.name ?: ""
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(vertical = 2.dp)
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .background(bgColor, CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    rightLabels[i],
+                                    "${rightLabels[i]} ($colorName)",
                                     style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.width(36.dp)
+                                    modifier = Modifier.width(100.dp)
                                 )
                                 OutlinedTextField(
                                     value = chars.getOrElse(i) { "" },
@@ -1043,72 +1059,4 @@ private fun SwipeBindingPickerDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
-}
-
-@Composable
-private fun DoubleSwipeEditor(
-    doubleSwipe: MutableMap<Direction, InputAction?>
-) {
-    val navActions = listOf(
-        InputAction.DPAD_UP, InputAction.DPAD_DOWN,
-        InputAction.DPAD_LEFT, InputAction.DPAD_RIGHT,
-        InputAction.PAGE_UP, InputAction.PAGE_DOWN,
-        InputAction.TAB, InputAction.DELETE_FORWARD
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        Text(
-            "Double-swipe navigation actions",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        ALL_DIRECTIONS.forEach { dir ->
-            var expanded by remember { mutableStateOf(false) }
-            val current = doubleSwipe[dir]
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = true }
-                    .padding(vertical = 8.dp, horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    DIRECTION_LABELS[dir] ?: dir.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.width(80.dp)
-                )
-                Text(
-                    current?.name ?: "(none)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(
-                    text = { Text("(none)") },
-                    onClick = {
-                        doubleSwipe[dir] = null
-                        expanded = false
-                    }
-                )
-                navActions.forEach { action ->
-                    DropdownMenuItem(
-                        text = { Text(action.name) },
-                        onClick = {
-                            doubleSwipe[dir] = action
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
-    }
 }

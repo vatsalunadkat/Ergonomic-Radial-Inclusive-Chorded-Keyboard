@@ -142,21 +142,4 @@ class KeyboardLogic {
             else -> null
         }
     }
-
-    fun getDoubleSwipeAction(dir: Direction, customLayout: CustomLayout? = null): InputAction? {
-        if (customLayout != null) {
-            return customLayout.doubleSwipeMap[dir]
-        }
-        return when (dir) {
-            Direction.N  -> InputAction.DPAD_UP
-            Direction.NE -> InputAction.PAGE_UP
-            Direction.E  -> InputAction.DPAD_RIGHT
-            Direction.SE -> InputAction.PAGE_DOWN
-            Direction.S  -> InputAction.DPAD_DOWN
-            Direction.SW -> InputAction.DELETE_FORWARD
-            Direction.W  -> InputAction.DPAD_LEFT
-            Direction.NW -> InputAction.TAB
-            else -> null
-        }
-    }
 }

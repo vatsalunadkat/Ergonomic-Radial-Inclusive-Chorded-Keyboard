@@ -159,6 +159,16 @@ private struct AppColorPaletteEntry {
 }
 
 private struct AppColorPaletteDefinitions {
+    static let defaultPalette: [AppColorPaletteEntry] = [
+        .init(name: "Red", hex: "#E60012"),
+        .init(name: "Orange", hex: "#F39800"),
+        .init(name: "Yellow", hex: "#FFF100"),
+        .init(name: "Green", hex: "#009944"),
+        .init(name: "Blue", hex: "#0068B7"),
+        .init(name: "Indigo", hex: "#1D2088"),
+        .init(name: "Violet", hex: "#920783"),
+        .init(name: "Black", hex: "#000000")
+    ]
     static let okabeIto: [AppColorPaletteEntry] = [
         .init(name: "Orange", hex: "#E69F00"),
         .init(name: "Sky Blue", hex: "#56B4E9"),
@@ -209,6 +219,17 @@ private struct AppColorPaletteDefinitions {
         .init(name: "Lilac", hex: "#D8A8C8"),
         .init(name: "Slate", hex: "#8B8B8B")
     ]
+
+    static func palette(for key: String) -> [AppColorPaletteEntry] {
+        switch key {
+        case "okabe_ito": return okabeIto
+        case "deuteranopia": return deuteranopia
+        case "protanopia": return protanopia
+        case "tritanopia": return tritanopia
+        case "pastel": return pastel
+        default: return defaultPalette
+        }
+    }
 }
 
 private struct AppColorPaletteOption: View {
@@ -371,11 +392,21 @@ struct AppCustomLayoutEditorView: View {
     let layout: CustomLayout
     var onSave: (CustomLayout) -> Void
 
+    @AppStorage("colorblind_mode", store: SettingsView.appGroupDefaults) private var colorblindMode: Bool = false
+    @AppStorage("color_palette", store: SettingsView.appGroupDefaults) private var colorPalette: String = "okabe_ito"
+
     @State private var name: String = ""
     @State private var selectedTab = 0
     @State private var normalChords: [String: [String]] = [:]
     @State private var shiftedChords: [String: [String]] = [:]
-    @State private var doubleSwipe: [String: String] = [:]
+
+    private var currentPalette: [AppColorPaletteEntry] {
+        if colorblindMode {
+            return AppColorPaletteDefinitions.palette(for: colorPalette)
+        } else {
+            return AppColorPaletteDefinitions.defaultPalette
+        }
+    }
 
     private let allDirections = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
     private let dirLabels = ["N (Up)", "NE", "E (Right)", "SE", "S (Down)", "SW", "W (Left)", "NW"]
@@ -390,7 +421,6 @@ struct AppCustomLayoutEditorView: View {
             Picker("Section", selection: $selectedTab) {
                 Text("Normal").tag(0)
                 Text("Shifted").tag(1)
-                Text("Double Swipe").tag(2)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
@@ -398,7 +428,6 @@ struct AppCustomLayoutEditorView: View {
             switch selectedTab {
             case 0: appChordEditor(chords: $normalChords)
             case 1: appChordEditor(chords: $shiftedChords)
-            case 2: appDoubleSwipeEditor
             default: EmptyView()
             }
         }
@@ -417,25 +446,17 @@ struct AppCustomLayoutEditorView: View {
             let dir = kmpDirection(from: dirStr)
             normalChords[dirStr] = (layout.normalChordMap[dir] as? [String]) ?? Array(repeating: "", count: 8)
             shiftedChords[dirStr] = (layout.shiftedChordMap[dir] as? [String]) ?? Array(repeating: "", count: 8)
-            if let action = layout.doubleSwipeMap[dir] as? InputAction {
-                doubleSwipe[dirStr] = action.name
-            }
         }
     }
 
     private func saveLayout() {
         let normalMap = NSMutableDictionary()
         let shiftedMap = NSMutableDictionary()
-        let doubleMap = NSMutableDictionary()
 
         for dirStr in allDirections {
             let dir = kmpDirection(from: dirStr)
             normalMap[dir] = normalChords[dirStr] ?? Array(repeating: "", count: 8)
             shiftedMap[dir] = shiftedChords[dirStr] ?? Array(repeating: "", count: 8)
-            if let actionStr = doubleSwipe[dirStr], !actionStr.isEmpty {
-                let action = InputAction.entries.first(where: { $0.name == actionStr })
-                doubleMap[dir] = action
-            }
         }
 
         let updated = CustomLayout(
@@ -444,8 +465,7 @@ struct AppCustomLayoutEditorView: View {
             normalChordMap: normalMap as! [Direction : [String]],
             shiftedChordMap: shiftedMap as! [Direction : [String]],
             singleSwipeNormalMap: layout.singleSwipeNormalMap,
-            singleSwipeShiftedMap: layout.singleSwipeShiftedMap,
-            doubleSwipeMap: doubleMap as! [Direction : KotlinBase?]
+            singleSwipeShiftedMap: layout.singleSwipeShiftedMap
         )
         onSave(updated)
     }
@@ -465,13 +485,17 @@ struct AppCustomLayoutEditorView: View {
     }
 
     private func appChordEditor(chords: Binding<[String: [String]]>) -> some View {
-        List {
+        let pal = currentPalette
+        return List {
             ForEach(Array(allDirections.enumerated()), id: \.offset) { idx, dirStr in
                 DisclosureGroup {
                     ForEach(0..<8, id: \.self) { i in
                         HStack {
-                            Text(allDirections[i])
-                                .frame(width: 30, alignment: .leading)
+                            Circle()
+                                .fill(i < pal.count ? Color(hex: pal[i].hex) : Color.gray)
+                                .frame(width: 14, height: 14)
+                            Text("\(allDirections[i]) (\(i < pal.count ? pal[i].name : ""))")
+                                .frame(width: 100, alignment: .leading)
                                 .font(.caption)
                             TextField("", text: Binding(
                                 get: { chords.wrappedValue[dirStr]?[i] ?? "" },
@@ -496,27 +520,6 @@ struct AppCustomLayoutEditorView: View {
         }
     }
 
-    private var appDoubleSwipeEditor: some View {
-        let navActions = ["DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT",
-                          "PAGE_UP", "PAGE_DOWN", "TAB", "DELETE_FORWARD"]
-        return List {
-            ForEach(Array(allDirections.enumerated()), id: \.offset) { idx, dirStr in
-                HStack {
-                    Text(dirLabels[idx]).frame(width: 80, alignment: .leading)
-                    Picker("", selection: Binding(
-                        get: { doubleSwipe[dirStr] ?? "" },
-                        set: { doubleSwipe[dirStr] = $0 }
-                    )) {
-                        Text("(none)").tag("")
-                        ForEach(navActions, id: \.self) { action in
-                            Text(action).tag(action)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-            }
-        }
-    }
 }
 
 extension Color {

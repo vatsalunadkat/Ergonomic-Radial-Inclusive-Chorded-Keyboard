@@ -9,7 +9,6 @@ class KeyboardStateMachine(
 ) {
     private val processor = KeyboardLogic()
     private val DEADZONE_RADIUS = 40f
-    private val DOUBLE_SWIPE_TIMEOUT = 250L
 
     // 核心状态
     private var leftActiveDir = Direction.NONE
@@ -29,10 +28,6 @@ class KeyboardStateMachine(
         private set
     var activeCustomLayout: CustomLayout? = null
     private var isChordExecuted = false
-
-    // 协程计时器任务
-    private var singleSwipeJob: Job? = null
-    private var pendingRightDir = Direction.NONE
 
     // 接收来自原生平台的触摸更新
     fun handleTouch(x: Float, y: Float, isLeft: Boolean, actionDownOrMove: Boolean, actionUp: Boolean) {
@@ -116,30 +111,7 @@ class KeyboardStateMachine(
 
     private fun handleRightOnlySwipe(dir: Direction) {
         if (dir == Direction.NONE) return
-
-        if (pendingRightDir == dir && singleSwipeJob?.isActive == true) {
-            // 触发双击
-            singleSwipeJob?.cancel()
-            pendingRightDir = Direction.NONE
-
-            val action = processor.getDoubleSwipeAction(dir, activeCustomLayout)
-            if (action != null) delegate.sendInputAction(action)
-        } else {
-            // 防御异向连滑漏洞
-            if (singleSwipeJob?.isActive == true) {
-                singleSwipeJob?.cancel()
-                executeSingleSwipe(pendingRightDir)
-            }
-
-            pendingRightDir = dir
-            // 启动协程计时器
-            singleSwipeJob = coroutineScope.launch {
-                delay(DOUBLE_SWIPE_TIMEOUT)
-                // 如果倒计时结束还没被取消，触发单击
-                executeSingleSwipe(dir)
-                pendingRightDir = Direction.NONE
-            }
-        }
+        executeSingleSwipe(dir)
     }
 
     private fun executeSingleSwipe(dir: Direction) {

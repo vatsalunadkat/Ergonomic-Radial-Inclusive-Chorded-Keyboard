@@ -447,6 +447,9 @@ struct CustomLayoutEditorView: View {
     var onSave: (CustomLayout) -> Void
     var onBack: () -> Void
 
+    @AppStorage("colorblind_mode", store: SettingsView.appGroupDefaults) private var colorblindMode: Bool = false
+    @AppStorage("color_palette", store: SettingsView.appGroupDefaults) private var colorPalette: String = "okabe_ito"
+
     @State private var name: String = ""
     @State private var selectedTab = 0
 
@@ -455,7 +458,14 @@ struct CustomLayoutEditorView: View {
     @State private var shiftedChords: [String: [String]] = [:]
     @State private var singleSwipeNormal: [String: String] = [:]
     @State private var singleSwipeShifted: [String: String] = [:]
-    @State private var doubleSwipe: [String: String] = [:]
+
+    private var currentPalette: [ColorPaletteEntry] {
+        if colorblindMode {
+            return ColorPaletteDefinitions.palette(for: colorPalette)
+        } else {
+            return ColorPaletteDefinitions.defaultPalette
+        }
+    }
 
     private let allDirections = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
     private let dirLabels = ["N (Up)", "NE", "E (Right)", "SE", "S (Down)", "SW", "W (Left)", "NW"]
@@ -485,7 +495,6 @@ struct CustomLayoutEditorView: View {
                 Text("Normal").tag(0)
                 Text("Shifted").tag(1)
                 Text("Single Swipe").tag(2)
-                Text("Double Swipe").tag(3)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
@@ -494,7 +503,6 @@ struct CustomLayoutEditorView: View {
             case 0: chordEditor(chords: $normalChords, label: "Normal")
             case 1: chordEditor(chords: $shiftedChords, label: "Shifted")
             case 2: singleSwipeEditor
-            case 3: doubleSwipeEditor
             default: EmptyView()
             }
         }
@@ -516,9 +524,6 @@ struct CustomLayoutEditorView: View {
             if let binding = layout.singleSwipeShiftedMap[dir] as? SingleSwipeBinding {
                 singleSwipeShifted[dirStr] = serializeBinding(binding)
             }
-            if let action = layout.doubleSwipeMap[dir] as? InputAction {
-                doubleSwipe[dirStr] = action.name
-            }
         }
     }
 
@@ -527,7 +532,6 @@ struct CustomLayoutEditorView: View {
         let shiftedMap = NSMutableDictionary()
         let singleNormalMap = NSMutableDictionary()
         let singleShiftedMap = NSMutableDictionary()
-        let doubleMap = NSMutableDictionary()
 
         for dirStr in allDirections {
             let dir = wheelDirection(from: dirStr)
@@ -540,10 +544,6 @@ struct CustomLayoutEditorView: View {
             if let bindStr = singleSwipeShifted[dirStr], let bind = deserializeBinding(bindStr) {
                 singleShiftedMap[dir] = bind
             }
-            if let actionStr = doubleSwipe[dirStr], !actionStr.isEmpty {
-                let action = InputAction.entries.first(where: { $0.name == actionStr })
-                doubleMap[dir] = action
-            }
         }
 
         let updated = CustomLayout(
@@ -552,8 +552,7 @@ struct CustomLayoutEditorView: View {
             normalChordMap: normalMap as! [Direction : [String]],
             shiftedChordMap: shiftedMap as! [Direction : [String]],
             singleSwipeNormalMap: singleNormalMap as! [Direction : SingleSwipeBinding],
-            singleSwipeShiftedMap: singleShiftedMap as! [Direction : SingleSwipeBinding],
-            doubleSwipeMap: doubleMap as! [Direction : KotlinBase?]
+            singleSwipeShiftedMap: singleShiftedMap as! [Direction : SingleSwipeBinding]
         )
         onSave(updated)
     }
@@ -583,13 +582,17 @@ struct CustomLayoutEditorView: View {
     // MARK: - Chord Editor
 
     private func chordEditor(chords: Binding<[String: [String]]>, label: String) -> some View {
-        List {
+        let pal = currentPalette
+        return List {
             ForEach(Array(allDirections.enumerated()), id: \.offset) { idx, dirStr in
                 DisclosureGroup {
                     ForEach(0..<8, id: \.self) { i in
                         HStack {
-                            Text(allDirections[i])
-                                .frame(width: 30, alignment: .leading)
+                            Circle()
+                                .fill(i < pal.count ? Color(hex: pal[i].hex) : Color.gray)
+                                .frame(width: 14, height: 14)
+                            Text("\(allDirections[i]) (\(i < pal.count ? pal[i].name : ""))")
+                                .frame(width: 100, alignment: .leading)
                                 .font(.caption)
                             TextField("", text: Binding(
                                 get: { chords.wrappedValue[dirStr]?[i] ?? "" },
@@ -634,30 +637,6 @@ struct CustomLayoutEditorView: View {
                         Text(singleSwipeShifted[dirStr] ?? "(none)")
                             .foregroundColor(.secondary)
                     }
-                }
-            }
-        }
-    }
-
-    // MARK: - Double Swipe Editor
-
-    private var doubleSwipeEditor: some View {
-        let navActions = ["DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT",
-                          "PAGE_UP", "PAGE_DOWN", "TAB", "DELETE_FORWARD"]
-        return List {
-            ForEach(Array(allDirections.enumerated()), id: \.offset) { idx, dirStr in
-                HStack {
-                    Text(dirLabels[idx]).frame(width: 80, alignment: .leading)
-                    Picker("", selection: Binding(
-                        get: { doubleSwipe[dirStr] ?? "" },
-                        set: { doubleSwipe[dirStr] = $0 }
-                    )) {
-                        Text("(none)").tag("")
-                        ForEach(navActions, id: \.self) { action in
-                            Text(action).tag(action)
-                        }
-                    }
-                    .pickerStyle(.menu)
                 }
             }
         }

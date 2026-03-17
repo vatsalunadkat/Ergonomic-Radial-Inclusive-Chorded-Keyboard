@@ -43,8 +43,7 @@ object CustomLayoutSerializer {
         sb.append("\"normalChordMap\":${serializeChordMap(layout.normalChordMap)},")
         sb.append("\"shiftedChordMap\":${serializeChordMap(layout.shiftedChordMap)},")
         sb.append("\"singleSwipeNormalMap\":${serializeSwipeMap(layout.singleSwipeNormalMap)},")
-        sb.append("\"singleSwipeShiftedMap\":${serializeSwipeMap(layout.singleSwipeShiftedMap)},")
-        sb.append("\"doubleSwipeMap\":${serializeDoubleSwipeMap(layout.doubleSwipeMap)}")
+        sb.append("\"singleSwipeShiftedMap\":${serializeSwipeMap(layout.singleSwipeShiftedMap)}")
         sb.append("}")
         return sb.toString()
     }
@@ -57,8 +56,7 @@ object CustomLayoutSerializer {
         val shiftedChord = parseChordMap(fields["shiftedChordMap"] ?: return null)
         val singleNormal = parseSwipeMap(fields["singleSwipeNormalMap"] ?: "{}")
         val singleShifted = parseSwipeMap(fields["singleSwipeShiftedMap"] ?: "{}")
-        val doubleTap = parseDoubleSwipeMap(fields["doubleSwipeMap"] ?: "{}")
-        return CustomLayout(id, name, normalChord, shiftedChord, singleNormal, singleShifted, doubleTap)
+        return CustomLayout(id, name, normalChord, shiftedChord, singleNormal, singleShifted)
     }
 
     // --- Chord map: {"N":["a","b",...], "NE":[...], ...} ---
@@ -113,35 +111,6 @@ object CustomLayoutSerializer {
             val dir = Direction.entries.firstOrNull { it.name == key } ?: continue
             val binding = SingleSwipeBinding.fromSerializable(unescapeJson(value)) ?: continue
             result[dir] = binding
-        }
-        return result
-    }
-
-    // --- Double-swipe map: {"N":"DPAD_UP", "NE":"PAGE_UP", ...} ---
-
-    private fun serializeDoubleSwipeMap(map: Map<Direction, InputAction?>): String {
-        val sb = StringBuilder()
-        sb.append("{")
-        var first = true
-        for ((dir, action) in map) {
-            if (!first) sb.append(",")
-            first = false
-            val v = if (action != null) escapeJson(action.name) else "null"
-            sb.append("\"${dir.name}\":$v")
-        }
-        sb.append("}")
-        return sb.toString()
-    }
-
-    private fun parseDoubleSwipeMap(json: String): Map<Direction, InputAction?> {
-        val result = mutableMapOf<Direction, InputAction?>()
-        val fields = parseObject(json)
-        for ((key, value) in fields) {
-            val dir = Direction.entries.firstOrNull { it.name == key } ?: continue
-            result[dir] = if (value == "null") null else {
-                val name = unescapeJson(value)
-                InputAction.entries.firstOrNull { it.name == name }
-            }
         }
         return result
     }

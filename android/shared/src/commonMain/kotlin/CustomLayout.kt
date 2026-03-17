@@ -1,15 +1,13 @@
 package com.vatoo.erick.shared
 
 /**
- * A user-created custom layout defining all chord mappings and single/double-swipe actions.
+ * A user-created custom layout defining all chord mappings and single-swipe actions.
  *
  * Chord maps: Map<Direction, List<String>> where each direction has up to 8 characters,
  * indexed by the right-dial direction order: N=0, NE=1, E=2, SE=3, S=4, SW=5, W=6, NW=7.
  *
  * Single-swipe map: Map<Direction, SingleSwipeBinding> where each entry is either
  * a character string or an InputAction.
- *
- * Double-swipe map: Map<Direction, InputAction?> for navigation double-tap actions.
  */
 data class CustomLayout(
     val id: String,
@@ -17,8 +15,7 @@ data class CustomLayout(
     val normalChordMap: Map<Direction, List<String>>,
     val shiftedChordMap: Map<Direction, List<String>>,
     val singleSwipeNormalMap: Map<Direction, SingleSwipeBinding>,
-    val singleSwipeShiftedMap: Map<Direction, SingleSwipeBinding>,
-    val doubleSwipeMap: Map<Direction, InputAction?>
+    val singleSwipeShiftedMap: Map<Direction, SingleSwipeBinding>
 )
 
 /**
@@ -138,11 +135,6 @@ class CustomLayoutManager(private val storage: CustomLayoutStorage) {
             }
         }
 
-        val doubleTap = mutableMapOf<Direction, InputAction?>()
-        for (dir in directions) {
-            doubleTap[dir] = logic.getDoubleSwipeAction(dir)
-        }
-
         val id = generateId()
         return CustomLayout(
             id = id,
@@ -150,58 +142,15 @@ class CustomLayoutManager(private val storage: CustomLayoutStorage) {
             normalChordMap = normalChord,
             shiftedChordMap = shiftedChord,
             singleSwipeNormalMap = singleNormal,
-            singleSwipeShiftedMap = singleShifted,
-            doubleSwipeMap = doubleTap
+            singleSwipeShiftedMap = singleShifted
         )
     }
 
     /**
-     * Create a blank custom layout with empty chord maps and default single-swipe actions.
+     * Create a new custom layout pre-populated with the Logical (A–Z) layout.
      */
     fun createBlank(name: String): CustomLayout {
-        val directions = listOf(
-            Direction.N, Direction.NE, Direction.E, Direction.SE,
-            Direction.S, Direction.SW, Direction.W, Direction.NW
-        )
-        val emptyChord = directions.associateWith { listOf("", "", "", "", "", "", "", "") }
-
-        // Default single-swipe actions (same as built-in)
-        val logic = KeyboardLogic()
-        val singleNormal = mutableMapOf<Direction, SingleSwipeBinding>()
-        val singleShifted = mutableMapOf<Direction, SingleSwipeBinding>()
-        for (dir in directions) {
-            val normalResult = logic.getSingleSwipeResult(dir, KeyboardMode.NORMAL)
-            if (normalResult != null) {
-                singleNormal[dir] = when (normalResult) {
-                    is String -> SingleSwipeBinding.Character(normalResult)
-                    is InputAction -> SingleSwipeBinding.Action(normalResult)
-                    else -> SingleSwipeBinding.Character(normalResult.toString())
-                }
-            }
-            val shiftedResult = logic.getSingleSwipeResult(dir, KeyboardMode.SHIFTED)
-            if (shiftedResult != null) {
-                singleShifted[dir] = when (shiftedResult) {
-                    is String -> SingleSwipeBinding.Character(shiftedResult)
-                    is InputAction -> SingleSwipeBinding.Action(shiftedResult)
-                    else -> SingleSwipeBinding.Character(shiftedResult.toString())
-                }
-            }
-        }
-
-        val doubleTap = mutableMapOf<Direction, InputAction?>()
-        for (dir in directions) {
-            doubleTap[dir] = logic.getDoubleSwipeAction(dir)
-        }
-
-        return CustomLayout(
-            id = generateId(),
-            name = name.trim().ifEmpty { "Custom Layout" },
-            normalChordMap = emptyChord,
-            shiftedChordMap = emptyChord,
-            singleSwipeNormalMap = singleNormal,
-            singleSwipeShiftedMap = singleShifted,
-            doubleSwipeMap = doubleTap
-        )
+        return duplicateFromBuiltIn(LayoutType.LOGICAL, name)
     }
 
     companion object {
