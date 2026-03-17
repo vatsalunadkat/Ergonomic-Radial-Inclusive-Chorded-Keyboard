@@ -13,6 +13,7 @@ struct SettingsView: View {
     
     @AppStorage("layout_type", store: SettingsView.appGroupDefaults) private var layoutType: String = "logical"
     @AppStorage("dark_theme", store: SettingsView.appGroupDefaults) private var darkTheme: Bool = false
+    @AppStorage("theme_mode", store: SettingsView.appGroupDefaults) private var themeMode: String = "system"
     @AppStorage("colorblind_mode", store: SettingsView.appGroupDefaults) private var colorblindMode: Bool = false
     @AppStorage("color_palette", store: SettingsView.appGroupDefaults) private var colorPalette: String = "okabe_ito"
     @AppStorage("left_handed_mode", store: SettingsView.appGroupDefaults) private var leftHandedMode: Bool = false
@@ -65,7 +66,12 @@ struct SettingsView: View {
                 
                 // Appearance Section
                 Section(header: Text("Appearance")) {
-                    Toggle("Dark Theme", isOn: $darkTheme)
+                    Picker("Theme", selection: $themeMode) {
+                        Text("System Default").tag("system")
+                        Text("Light").tag("light")
+                        Text("Dark").tag("dark")
+                    }
+                    .pickerStyle(.inline)
                 }
 
                 // Accessibility Section

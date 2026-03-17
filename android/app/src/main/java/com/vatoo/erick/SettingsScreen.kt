@@ -45,6 +45,7 @@ fun SettingsScreen(
 ) {
     val layoutType by preferencesManager.layoutType.collectAsState(initial = PreferencesManager.LAYOUT_LOGICAL)
     val darkTheme by preferencesManager.darkTheme.collectAsState(initial = false)
+    val themeMode by preferencesManager.themeMode.collectAsState(initial = PreferencesManager.THEME_SYSTEM)
     val colorblindMode by preferencesManager.colorblindMode.collectAsState(initial = false)
     val colorPalette by preferencesManager.colorPalette.collectAsState(initial = PreferencesManager.PALETTE_OKABE_ITO)
     val leftHandedMode by preferencesManager.leftHandedMode.collectAsState(initial = false)
@@ -66,6 +67,7 @@ fun SettingsScreen(
             preferencesManager = preferencesManager,
             layoutType = layoutType,
             darkTheme = darkTheme,
+            themeMode = themeMode,
             colorblindMode = colorblindMode,
             colorPalette = colorPalette,
             leftHandedMode = leftHandedMode,
@@ -111,6 +113,7 @@ private fun MainSettingsContent(
     preferencesManager: PreferencesManager,
     layoutType: String,
     darkTheme: Boolean,
+    themeMode: String,
     colorblindMode: Boolean,
     colorPalette: String,
     leftHandedMode: Boolean,
@@ -217,13 +220,44 @@ private fun MainSettingsContent(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            SettingToggle(
-                title = "Dark Theme",
-                checked = darkTheme,
+            Text(
+                text = "Theme",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+
+            LayoutRadioOption(
+                title = "System Default",
+                subtitle = "Follows device light/dark mode setting",
+                selected = themeMode == PreferencesManager.THEME_SYSTEM,
                 enabled = true,
-                onCheckedChange = { checked ->
+                onClick = {
                     scope.launch {
-                        preferencesManager.setDarkTheme(checked)
+                        preferencesManager.setThemeMode(PreferencesManager.THEME_SYSTEM)
+                    }
+                }
+            )
+
+            LayoutRadioOption(
+                title = "Light",
+                subtitle = "Always light regardless of system setting",
+                selected = themeMode == PreferencesManager.THEME_LIGHT,
+                enabled = true,
+                onClick = {
+                    scope.launch {
+                        preferencesManager.setThemeMode(PreferencesManager.THEME_LIGHT)
+                    }
+                }
+            )
+
+            LayoutRadioOption(
+                title = "Dark",
+                subtitle = "Always dark regardless of system setting",
+                selected = themeMode == PreferencesManager.THEME_DARK,
+                enabled = true,
+                onClick = {
+                    scope.launch {
+                        preferencesManager.setThemeMode(PreferencesManager.THEME_DARK)
                     }
                 }
             )

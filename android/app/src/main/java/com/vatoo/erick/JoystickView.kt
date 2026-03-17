@@ -47,6 +47,13 @@ class JoystickView @JvmOverloads constructor(
                 invalidate()
             }
         }
+    var isDarkMode: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
     private var previewText: String = ""
 
     private var centerX = 0f

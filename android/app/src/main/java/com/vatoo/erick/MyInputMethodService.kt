@@ -50,6 +50,8 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
     private lateinit var stateMachine: KeyboardStateMachine
     private lateinit var preferencesManager: PreferencesManager
     private lateinit var customLayoutManager: CustomLayoutManager
+    private var currentThemeMode: String = PreferencesManager.THEME_SYSTEM
+    private var keyboardRootView: View? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -106,6 +108,12 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
             if (::leftJoystick.isInitialized) leftJoystick.colorPaletteType = paletteType
             if (::rightJoystick.isInitialized) rightJoystick.colorPaletteType = paletteType
         }.launchIn(serviceScope)
+
+        // Monitor theme mode changes
+        preferencesManager.themeMode.onEach { mode ->
+            currentThemeMode = mode
+            applyKeyboardTheme()
+        }.launchIn(serviceScope)
     }
 
     override fun onDestroy() {
@@ -136,6 +144,9 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
 
         previewContainer = view.findViewById(R.id.live_preview_container)
         previewCapsule = view.findViewById(R.id.live_preview_capsule)
+
+        keyboardRootView = view
+        applyKeyboardTheme()
 
         leftJoystick.setOnTouchListener { v, event ->
             v.performClick()
@@ -188,6 +199,44 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         // rightJoystick.setPreviewText(stateMachine.getPreviewText())
 
         updateLivePreview()
+    }
+
+    private fun isEffectiveDarkMode(): Boolean {
+        return when (currentThemeMode) {
+            PreferencesManager.THEME_DARK -> true
+            PreferencesManager.THEME_LIGHT -> false
+            else -> {
+                val nightMode = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+    }
+
+    private fun applyKeyboardTheme() {
+        val root = keyboardRootView ?: return
+        val isDark = isEffectiveDarkMode()
+
+        // Keyboard background
+        root.setBackgroundColor(if (isDark) Color.parseColor("#1E1E1E") else Color.parseColor("#ECEFF1"))
+
+        // Preview capsule background
+        if (::previewCapsule.isInitialized) {
+            previewCapsule.background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = 999f * resources.displayMetrics.density
+                setColor(if (isDark) Color.argb(245, 50, 50, 50) else Color.argb(245, 255, 255, 255))
+            }
+        }
+
+        // Joystick views
+        if (::leftJoystick.isInitialized) {
+            leftJoystick.isDarkMode = isDark
+            leftJoystick.invalidate()
+        }
+        if (::rightJoystick.isInitialized) {
+            rightJoystick.isDarkMode = isDark
+            rightJoystick.invalidate()
+        }
     }
 
     private fun updateLivePreview() {

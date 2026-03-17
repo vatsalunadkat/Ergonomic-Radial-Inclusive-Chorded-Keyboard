@@ -20,6 +20,7 @@ class KeyboardViewModel: ObservableObject {
     @Published var isEfficiency: Bool = false
     @Published var colorPaletteKey: String = "default"
     @Published var isLeftHanded: Bool = false
+    @Published var isDarkMode: Bool = false
 }
 
 // 2. SwiftUI 键盘容器：把左右两个摇杆横向排列
@@ -32,7 +33,7 @@ struct KeyboardContainerView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(hex: "#ECEFF1")
+            (viewModel.isDarkMode ? Color(hex: "#1E1E1E") : Color(hex: "#ECEFF1"))
                 .ignoresSafeArea()
 
             GeometryReader { geometry in
@@ -81,7 +82,8 @@ struct KeyboardContainerView: View {
             if !viewModel.previewItems.isEmpty {
                 KeyboardPreviewBar(
                     items: viewModel.previewItems,
-                    highlightedIndex: viewModel.highlightedPreviewIndex
+                    highlightedIndex: viewModel.highlightedPreviewIndex,
+                    isDarkMode: viewModel.isDarkMode
                 )
                     .padding(.top, 8)
             }
@@ -118,6 +120,7 @@ struct KeyboardContainerView: View {
 private struct KeyboardPreviewBar: View {
     let items: [KeyboardPreviewItem]
     let highlightedIndex: Int?
+    var isDarkMode: Bool = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -141,7 +144,7 @@ private struct KeyboardPreviewBar: View {
         .padding(.vertical, 10)
         .background(
             Capsule()
-                .fill(Color.white.opacity(0.96))
+                .fill(isDarkMode ? Color(hex: "#323232").opacity(0.96) : Color.white.opacity(0.96))
                 .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
         )
         .frame(maxWidth: .infinity, alignment: .center)
@@ -313,6 +316,17 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         let leftHanded = isLeftHandedMode
         stateMachine.setLeftHandedMode(enabled: leftHanded)
         viewModel.isLeftHanded = leftHanded
+
+        // Apply theme mode
+        let themeMode = Self.appGroupDefaults.string(forKey: "theme_mode") ?? "system"
+        switch themeMode {
+        case "dark":
+            viewModel.isDarkMode = true
+        case "light":
+            viewModel.isDarkMode = false
+        default:
+            viewModel.isDarkMode = self.traitCollection.userInterfaceStyle == .dark
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
