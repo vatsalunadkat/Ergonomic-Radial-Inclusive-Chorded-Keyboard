@@ -39,6 +39,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
     private lateinit var rightJoystick: JoystickView
     private lateinit var previewContainer: FrameLayout
     private lateinit var previewCapsule: LinearLayout
+    private lateinit var shiftIndicator: TextView
     private var lastHighlightedIndex: Int = -1
 
     // --- 协程生命周期管理 ---
@@ -151,6 +152,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
 
         previewContainer = view.findViewById(R.id.live_preview_container)
         previewCapsule = view.findViewById(R.id.live_preview_capsule)
+        shiftIndicator = view.findViewById(R.id.shift_indicator)
 
         keyboardRootView = view
         applyKeyboardTheme()
@@ -244,6 +246,11 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         if (::rightJoystick.isInitialized) {
             rightJoystick.isDarkMode = isDark
             rightJoystick.invalidate()
+        }
+
+        // Re-apply shift indicator colors for the new theme
+        if (::leftJoystick.isInitialized) {
+            updateShiftIndicator(stateMachine.currentMode)
         }
     }
 
@@ -421,6 +428,38 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
     override fun onModeChanged(mode: com.vatoo.erick.shared.KeyboardMode) {
         leftJoystick.keyboardMode = mode
         rightJoystick.keyboardMode = mode
+        updateShiftIndicator(mode)
+    }
+
+    private fun updateShiftIndicator(mode: com.vatoo.erick.shared.KeyboardMode) {
+        if (!::shiftIndicator.isInitialized) return
+        val isDark = isEffectiveDarkMode()
+        when (mode) {
+            com.vatoo.erick.shared.KeyboardMode.SHIFTED -> {
+                shiftIndicator.text = "⬆ Shift"
+                shiftIndicator.setTextColor(if (isDark) Color.WHITE else Color.DKGRAY)
+                shiftIndicator.visibility = View.VISIBLE
+                shiftIndicator.contentDescription = "Shift mode active"
+            }
+            com.vatoo.erick.shared.KeyboardMode.CAPS_LOCKED -> {
+                shiftIndicator.text = "⬆⬆ CAPS"
+                shiftIndicator.setTextColor(Color.WHITE)
+                shiftIndicator.setBackgroundColor(Color.parseColor("#D32F2F"))
+                shiftIndicator.setPadding(
+                    (6 * resources.displayMetrics.density).toInt(),
+                    (2 * resources.displayMetrics.density).toInt(),
+                    (6 * resources.displayMetrics.density).toInt(),
+                    (2 * resources.displayMetrics.density).toInt()
+                )
+                shiftIndicator.visibility = View.VISIBLE
+                shiftIndicator.contentDescription = "Caps Lock active"
+            }
+            else -> {
+                shiftIndicator.visibility = View.GONE
+                shiftIndicator.background = null
+                shiftIndicator.setPadding(0, 0, 0, 0)
+            }
+        }
     }
 
     // --- 彻底禁止全屏的"四重防火墙" (保持不变) ---

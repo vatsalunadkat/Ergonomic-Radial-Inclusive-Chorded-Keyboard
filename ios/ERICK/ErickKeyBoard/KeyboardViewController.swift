@@ -111,6 +111,30 @@ struct KeyboardContainerView: View {
             }
 
             HStack {
+                // Shift / Caps Lock indicator
+                if viewModel.keyboardMode == .shifted {
+                    Text("⬆ Shift")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(viewModel.isDarkMode ? .white : Color(hex: "#333333"))
+                        .padding(.horizontal, 6)
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                        .accessibilityLabel("Shift mode active")
+                } else if viewModel.keyboardMode == .capsLocked {
+                    Text("⬆⬆ CAPS")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.red)
+                        )
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                        .accessibilityLabel("Caps Lock active")
+                }
+
                 Spacer()
                 Button(action: {
                     withAnimation {
@@ -124,6 +148,8 @@ struct KeyboardContainerView: View {
                         .padding(.top, 4)
                 }
             }
+            .padding(.leading, 8)
+            .animation(.easeInOut(duration: 0.15), value: viewModel.keyboardMode)
 
             // 覆盖设置页面
             if showSettings {
