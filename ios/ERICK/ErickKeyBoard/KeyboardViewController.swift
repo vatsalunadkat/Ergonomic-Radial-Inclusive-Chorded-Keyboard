@@ -406,16 +406,26 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
     }
 
     private func updatePreviewState() {
-        guard let items = previewItems(for: mirroredLeftDirection, mode: mirroredMode) else {
-            viewModel.previewItems = []
+        if mirroredLeftDirection != .none {
+            // Left-dial hold: show characters for that group
+            guard let items = previewItems(for: mirroredLeftDirection, mode: mirroredMode) else {
+                viewModel.previewItems = []
+                viewModel.highlightedPreviewIndex = nil
+                return
+            }
+            viewModel.previewItems = items
+            if let index = previewIndex(for: mirroredRightDirection), index < items.count {
+                viewModel.highlightedPreviewIndex = index
+            } else {
+                viewModel.highlightedPreviewIndex = nil
+            }
+        } else if mirroredRightDirection != .none {
+            // Right-dial-only hold: show character at this position across all left-dial groups
+            let items = rightDialPreviewItems(for: mirroredRightDirection, mode: mirroredMode)
+            viewModel.previewItems = items
             viewModel.highlightedPreviewIndex = nil
-            return
-        }
-
-        viewModel.previewItems = items
-        if let index = previewIndex(for: mirroredRightDirection), index < items.count {
-            viewModel.highlightedPreviewIndex = index
         } else {
+            viewModel.previewItems = []
             viewModel.highlightedPreviewIndex = nil
         }
     }
@@ -502,6 +512,100 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
                 color = Color(hex: "#5F6368")
             }
             return KeyboardPreviewItem(id: index, text: item, color: color)
+        }
+    }
+
+    /// Right-dial-only preview: returns the character at the given right-dial position
+    /// across all 8 left-dial groups. Works for Logical, Efficiency layouts in all modes.
+    private func rightDialPreviewItems(for direction: WheelDirection, mode: WheelMode) -> [KeyboardPreviewItem] {
+        guard direction != .none else { return [] }
+
+        guard let posIndex = previewIndex(for: direction) else { return [] }
+
+        let palette = ColorPaletteDefinitions.palette(for: currentColorPaletteKey)
+        let colorHex = colorHexForDirection(direction, palette: palette)
+        let color = Color(hex: colorHex)
+
+        let allLeftDirs: [WheelDirection] = [.n, .ne, .e, .se, .s, .sw, .w, .nw]
+        var result: [KeyboardPreviewItem] = []
+        var itemId = 0
+
+        for leftDir in allLeftDirs {
+            guard let groupItems = previewItems(for: leftDir, mode: mode) else { continue }
+            // Find the character at posIndex in this group's full 8-slot layout
+            let charAtPos = characterAtRightIndex(posIndex, leftDir: leftDir, mode: mode)
+            if let ch = charAtPos, !ch.isEmpty {
+                result.append(KeyboardPreviewItem(id: itemId, text: ch, color: color))
+                itemId += 1
+            }
+        }
+
+        return result
+    }
+
+    /// Returns the character at a specific right-dial index for a given left-dial direction.
+    /// Uses the full 8-slot layout data (including empty slots) to get the correct position.
+    private func characterAtRightIndex(_ index: Int, leftDir: WheelDirection, mode: WheelMode) -> String? {
+        guard index >= 0 && index < 8 else { return nil }
+
+        let fullSlots: [String]
+        if isEfficiencyLayout {
+            switch (leftDir, mode.usesShiftedSymbols) {
+            case (.n, false):  fullSlots = ["t", "s", "g", "7", "=", "", "4", "k"]
+            case (.ne, false): fullSlots = ["i", "a", "n", "p", "/", "", "", "'"]
+            case (.e, false):  fullSlots = ["v", "l", "e", "r", "x", "", "", ";"]
+            case (.se, false): fullSlots = ["-", "y", "d", "o", "m", "", "", ""]
+            case (.s, false):  fullSlots = ["`", "6", "b", "f", "u", "", "", ""]
+            case (.sw, false): fullSlots = ["\\", "[", "]", "5", "q", "j", "", ""]
+            case (.w, false):  fullSlots = ["", "", "", "", "", "2", "3", "z"]
+            case (.nw, false): fullSlots = ["h", "w", "1", "8", "9", "", "0", "c"]
+            case (.n, true):   fullSlots = ["T", "S", "G", "&", "+", "", "$", "K"]
+            case (.ne, true):  fullSlots = ["I", "A", "N", "P", "?", "", "", "\""]
+            case (.e, true):   fullSlots = ["V", "L", "E", "R", "X", "", "", ":"]
+            case (.se, true):  fullSlots = ["_", "Y", "D", "O", "M", "", "", ""]
+            case (.s, true):   fullSlots = ["~", "^", "B", "F", "U", "", "", ""]
+            case (.sw, true):  fullSlots = ["|", "{", "}", "%", "Q", "J", "", ""]
+            case (.w, true):   fullSlots = ["", "", "", "", "", "@", "#", "Z"]
+            case (.nw, true):  fullSlots = ["H", "W", "!", "*", "(", "", ")", "C"]
+            default:           return nil
+            }
+        } else {
+            switch (leftDir, mode.usesShiftedSymbols) {
+            case (.n, false):  fullSlots = ["a", "b", "c", "d", "e", "", "", "'"]
+            case (.ne, false): fullSlots = ["f", "g", "h", "i", "j", "", "", "/"]
+            case (.e, false):  fullSlots = ["k", "l", "m", "n", "o", "", "", ";"]
+            case (.se, false): fullSlots = ["p", "q", "r", "s", "t", "", "", "-"]
+            case (.s, false):  fullSlots = ["u", "v", "w", "x", "y", "", "", "="]
+            case (.sw, false): fullSlots = ["z", "\\", "[", "]", "`", "", "", ""]
+            case (.w, false):  fullSlots = ["1", "2", "3", "4", "5", "", "", ""]
+            case (.nw, false): fullSlots = ["6", "7", "8", "9", "0", "", "", ""]
+            case (.n, true):   fullSlots = ["A", "B", "C", "D", "E", "", "", "\""]
+            case (.ne, true):  fullSlots = ["F", "G", "H", "I", "J", "", "", "?"]
+            case (.e, true):   fullSlots = ["K", "L", "M", "N", "O", "", "", ":"]
+            case (.se, true):  fullSlots = ["P", "Q", "R", "S", "T", "", "", "_"]
+            case (.s, true):   fullSlots = ["U", "V", "W", "X", "Y", "", "", "+"]
+            case (.sw, true):  fullSlots = ["Z", "|", "{", "}", "~", "", "", ""]
+            case (.w, true):   fullSlots = ["!", "@", "#", "$", "%", "", "", ""]
+            case (.nw, true):  fullSlots = ["^", "&", "*", "(", ")", "", "", ""]
+            default:           return nil
+            }
+        }
+
+        let ch = fullSlots[index]
+        return ch.isEmpty ? nil : ch
+    }
+
+    private func colorHexForDirection(_ direction: WheelDirection, palette: [ColorPaletteEntry]) -> String {
+        switch direction {
+        case .n:  return palette[0].hex
+        case .ne: return palette[1].hex
+        case .e:  return palette[2].hex
+        case .se: return palette[3].hex
+        case .s:  return palette[4].hex
+        case .sw: return palette[5].hex
+        case .w:  return palette[6].hex
+        case .nw: return palette[7].hex
+        default:  return "#5F6368"
         }
     }
 }
