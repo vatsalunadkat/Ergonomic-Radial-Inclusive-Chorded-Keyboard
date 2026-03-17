@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SharedKeyboard
 
 struct SettingsView: View {
     private static let appGroupDefaults = UserDefaults(suiteName: "group.com.vatoo.erick") ?? .standard
@@ -15,8 +16,18 @@ struct SettingsView: View {
     @AppStorage("colorblind_mode", store: SettingsView.appGroupDefaults) private var colorblindMode: Bool = false
     @AppStorage("color_palette", store: SettingsView.appGroupDefaults) private var colorPalette: String = "okabe_ito"
     @AppStorage("left_handed_mode", store: SettingsView.appGroupDefaults) private var leftHandedMode: Bool = false
+    @AppStorage("custom_layout_id", store: SettingsView.appGroupDefaults) private var customLayoutId: String = ""
     
     @Environment(\.dismiss) var dismiss
+
+    @State private var customLayouts: [CustomLayout] = []
+    @State private var showCustomLayoutManager = false
+
+    private func reloadCustomLayouts() {
+        let m = CustomLayoutManager(storage: IOSCustomLayoutStorage())
+        m.loadAll()
+        customLayouts = m.getAll()
+    }
 
     var body: some View {
         NavigationView {
@@ -28,6 +39,28 @@ struct SettingsView: View {
                         Text("Efficiency").tag("efficiency")
                     }
                     .pickerStyle(.inline)
+
+                    // Custom layouts
+                    ForEach(Array(customLayouts.enumerated()), id: \.element.id) { _, cl in
+                        Button(action: {
+                            customLayoutId = cl.id
+                            layoutType = "custom"
+                        }) {
+                            HStack {
+                                Image(systemName: layoutType == "custom" && customLayoutId == cl.id
+                                      ? "largecircle.fill.circle" : "circle")
+                                    .foregroundColor(layoutType == "custom" && customLayoutId == cl.id ? .accentColor : .secondary)
+                                VStack(alignment: .leading) {
+                                    Text(cl.name).foregroundColor(.primary)
+                                    Text("Custom layout").font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                    }
+
+                    NavigationLink("Manage Custom Layouts") {
+                        AppCustomLayoutListView(onLayoutsChanged: { reloadCustomLayouts() })
+                    }
                 }
                 
                 // Appearance Section
@@ -107,6 +140,7 @@ struct SettingsView: View {
             .navigationBarItems(leading: Button("Back", action: {
                 dismiss()
             }))
+            .onAppear { reloadCustomLayouts() }
         }
     }
 }
@@ -216,6 +250,269 @@ private struct AppColorPaletteOption: View {
                         }
                     }
                     .padding(.leading, 28)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - App Custom Layout List View
+
+struct AppCustomLayoutListView: View {
+    var onLayoutsChanged: () -> Void
+
+    @State private var layouts: [CustomLayout] = []
+    @State private var showCreateBlank = false
+    @State private var showDuplicate = false
+    @State private var newLayoutName = ""
+    @State private var deleteTarget: CustomLayout? = nil
+
+    private func manager() -> CustomLayoutManager {
+        let m = CustomLayoutManager(storage: IOSCustomLayoutStorage())
+        m.loadAll()
+        return m
+    }
+
+    private func reloadLayouts() {
+        layouts = manager().getAll()
+        onLayoutsChanged()
+    }
+
+    var body: some View {
+        List {
+            if layouts.isEmpty {
+                Text("No custom layouts yet.\nTap + to create one.")
+                    .foregroundColor(.secondary)
+                    .padding()
+            }
+            ForEach(Array(layouts.enumerated()), id: \.element.id) { _, cl in
+                NavigationLink {
+                    AppCustomLayoutEditorView(layout: cl, onSave: { updated in
+                        let m = manager()
+                        let _ = m.save(layout: updated)
+                        reloadLayouts()
+                    })
+                } label: {
+                    VStack(alignment: .leading) {
+                        Text(cl.name).font(.body)
+                        let count = cl.normalChordMap.values.flatMap { ($0 as! [String]) }.filter { !$0.isEmpty }.count
+                        Text("\(count) characters mapped")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) { deleteTarget = cl } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+            }
+        }
+        .navigationTitle("Custom Layouts")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button("Create Blank") { newLayoutName = ""; showCreateBlank = true }
+                    Button("Duplicate Built-in") { newLayoutName = ""; showDuplicate = true }
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .onAppear { reloadLayouts() }
+        .alert("New Blank Layout", isPresented: $showCreateBlank) {
+            TextField("Layout Name", text: $newLayoutName)
+            Button("Create") {
+                let m = manager()
+                let layout = m.createBlank(name: newLayoutName)
+                let _ = m.save(layout: layout)
+                reloadLayouts()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Duplicate Built-in", isPresented: $showDuplicate) {
+            TextField("New Layout Name", text: $newLayoutName)
+            Button("Logical") {
+                let m = manager()
+                let layout = m.duplicateFromBuiltIn(sourceLayout: .logical, customName: newLayoutName)
+                let _ = m.save(layout: layout)
+                reloadLayouts()
+            }
+            Button("Efficiency") {
+                let m = manager()
+                let layout = m.duplicateFromBuiltIn(sourceLayout: .efficiency, customName: newLayoutName)
+                let _ = m.save(layout: layout)
+                reloadLayouts()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Delete Layout?", isPresented: Binding(
+            get: { deleteTarget != nil },
+            set: { if !$0 { deleteTarget = nil } }
+        )) {
+            Button("Delete", role: .destructive) {
+                if let t = deleteTarget {
+                    let m = manager()
+                    m.delete(id: t.id)
+                    reloadLayouts()
+                    deleteTarget = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { deleteTarget = nil }
+        } message: {
+            Text("Delete \"\(deleteTarget?.name ?? "")\"? This cannot be undone.")
+        }
+    }
+}
+
+// MARK: - App Custom Layout Editor View
+
+struct AppCustomLayoutEditorView: View {
+    let layout: CustomLayout
+    var onSave: (CustomLayout) -> Void
+
+    @State private var name: String = ""
+    @State private var selectedTab = 0
+    @State private var normalChords: [String: [String]] = [:]
+    @State private var shiftedChords: [String: [String]] = [:]
+    @State private var doubleSwipe: [String: String] = [:]
+
+    private let allDirections = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    private let dirLabels = ["N (Up)", "NE", "E (Right)", "SE", "S (Down)", "SW", "W (Left)", "NW"]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TextField("Layout Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+
+            Picker("Section", selection: $selectedTab) {
+                Text("Normal").tag(0)
+                Text("Shifted").tag(1)
+                Text("Double Swipe").tag(2)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+
+            switch selectedTab {
+            case 0: appChordEditor(chords: $normalChords)
+            case 1: appChordEditor(chords: $shiftedChords)
+            case 2: appDoubleSwipeEditor
+            default: EmptyView()
+            }
+        }
+        .navigationTitle("Edit Layout")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Save") { saveLayout() }
+            }
+        }
+        .onAppear { loadFromLayout() }
+    }
+
+    private func loadFromLayout() {
+        name = layout.name
+        for dirStr in allDirections {
+            let dir = kmpDirection(from: dirStr)
+            normalChords[dirStr] = (layout.normalChordMap[dir] as? [String]) ?? Array(repeating: "", count: 8)
+            shiftedChords[dirStr] = (layout.shiftedChordMap[dir] as? [String]) ?? Array(repeating: "", count: 8)
+            if let action = layout.doubleSwipeMap[dir] as? InputAction {
+                doubleSwipe[dirStr] = action.name
+            }
+        }
+    }
+
+    private func saveLayout() {
+        let normalMap = NSMutableDictionary()
+        let shiftedMap = NSMutableDictionary()
+        let doubleMap = NSMutableDictionary()
+
+        for dirStr in allDirections {
+            let dir = kmpDirection(from: dirStr)
+            normalMap[dir] = normalChords[dirStr] ?? Array(repeating: "", count: 8)
+            shiftedMap[dir] = shiftedChords[dirStr] ?? Array(repeating: "", count: 8)
+            if let actionStr = doubleSwipe[dirStr], !actionStr.isEmpty {
+                let action = InputAction.entries.first(where: { $0.name == actionStr })
+                doubleMap[dir] = action
+            }
+        }
+
+        let updated = CustomLayout(
+            id: layout.id,
+            name: name.trimmingCharacters(in: .whitespaces).isEmpty ? "Custom Layout" : name.trimmingCharacters(in: .whitespaces),
+            normalChordMap: normalMap as! [Direction : [String]],
+            shiftedChordMap: shiftedMap as! [Direction : [String]],
+            singleSwipeNormalMap: layout.singleSwipeNormalMap,
+            singleSwipeShiftedMap: layout.singleSwipeShiftedMap,
+            doubleSwipeMap: doubleMap as! [Direction : KotlinBase?]
+        )
+        onSave(updated)
+    }
+
+    private func kmpDirection(from str: String) -> Direction {
+        switch str {
+        case "N": return .n
+        case "NE": return .ne
+        case "E": return .e
+        case "SE": return .se
+        case "S": return .s
+        case "SW": return .sw
+        case "W": return .w
+        case "NW": return .nw
+        default: return .none
+        }
+    }
+
+    private func appChordEditor(chords: Binding<[String: [String]]>) -> some View {
+        List {
+            ForEach(Array(allDirections.enumerated()), id: \.offset) { idx, dirStr in
+                DisclosureGroup {
+                    ForEach(0..<8, id: \.self) { i in
+                        HStack {
+                            Text(allDirections[i])
+                                .frame(width: 30, alignment: .leading)
+                                .font(.caption)
+                            TextField("", text: Binding(
+                                get: { chords.wrappedValue[dirStr]?[i] ?? "" },
+                                set: { newVal in
+                                    var arr = chords.wrappedValue[dirStr] ?? Array(repeating: "", count: 8)
+                                    arr[i] = String(newVal.prefix(1))
+                                    chords.wrappedValue[dirStr] = arr
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(dirLabels[idx]).font(.body)
+                        Spacer()
+                        let chars = (chords.wrappedValue[dirStr] ?? []).filter { !$0.isEmpty }.joined(separator: " ")
+                        Text(chars).font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private var appDoubleSwipeEditor: some View {
+        let navActions = ["DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT",
+                          "PAGE_UP", "PAGE_DOWN", "TAB", "DELETE_FORWARD"]
+        return List {
+            ForEach(Array(allDirections.enumerated()), id: \.offset) { idx, dirStr in
+                HStack {
+                    Text(dirLabels[idx]).frame(width: 80, alignment: .leading)
+                    Picker("", selection: Binding(
+                        get: { doubleSwipe[dirStr] ?? "" },
+                        set: { doubleSwipe[dirStr] = $0 }
+                    )) {
+                        Text("(none)").tag("")
+                        ForEach(navActions, id: \.self) { action in
+                            Text(action).tag(action)
+                        }
+                    }
+                    .pickerStyle(.menu)
                 }
             }
         }

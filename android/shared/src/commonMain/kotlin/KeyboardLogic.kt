@@ -85,11 +85,15 @@ class KeyboardLogic {
         }
     }
 
-    fun getChordResult(leftDir: Direction, rightDir: Direction, mode: KeyboardMode, layout: LayoutType = LayoutType.LOGICAL): String {
+    fun getChordResult(leftDir: Direction, rightDir: Direction, mode: KeyboardMode, layout: LayoutType = LayoutType.LOGICAL, customLayout: CustomLayout? = null): String {
         if (leftDir == Direction.NONE || rightDir == Direction.NONE) return ""
         val index = getRightIndex(rightDir)
         if (index == -1) return ""
         val currentMap = when {
+            layout == LayoutType.CUSTOM && customLayout != null -> {
+                if (mode == KeyboardMode.NORMAL) customLayout.normalChordMap
+                else customLayout.shiftedChordMap
+            }
             layout == LayoutType.EFFICIENCY && mode == KeyboardMode.NORMAL -> efficiencyNormalMap
             layout == LayoutType.EFFICIENCY -> efficiencyShiftedMap
             mode == KeyboardMode.NORMAL -> normalMap
@@ -99,8 +103,12 @@ class KeyboardLogic {
         return charList.getOrNull(index) ?: ""
     }
 
-    fun getCharactersForDirection(dir: Direction, mode: KeyboardMode, layout: LayoutType = LayoutType.LOGICAL): List<String> {
+    fun getCharactersForDirection(dir: Direction, mode: KeyboardMode, layout: LayoutType = LayoutType.LOGICAL, customLayout: CustomLayout? = null): List<String> {
         val currentMap = when {
+            layout == LayoutType.CUSTOM && customLayout != null -> {
+                if (mode == KeyboardMode.NORMAL) customLayout.normalChordMap
+                else customLayout.shiftedChordMap
+            }
             layout == LayoutType.EFFICIENCY && mode == KeyboardMode.NORMAL -> efficiencyNormalMap
             layout == LayoutType.EFFICIENCY -> efficiencyShiftedMap
             mode == KeyboardMode.NORMAL -> normalMap
@@ -112,7 +120,15 @@ class KeyboardLogic {
     // --- 第三部分：动作映射 (替换为我们刚刚定义的跨平台 InputAction) ---
 
     // 注意这里：返回值变成了 Any，因为单滑可能返回字符 (String)，也可能返回指令 (InputAction)
-    fun getSingleSwipeResult(dir: Direction, mode: KeyboardMode): Any? {
+    fun getSingleSwipeResult(dir: Direction, mode: KeyboardMode, customLayout: CustomLayout? = null): Any? {
+        if (customLayout != null) {
+            val map = if (mode != KeyboardMode.NORMAL) customLayout.singleSwipeShiftedMap else customLayout.singleSwipeNormalMap
+            val binding = map[dir] ?: return null
+            return when (binding) {
+                is SingleSwipeBinding.Character -> binding.char
+                is SingleSwipeBinding.Action -> binding.action
+            }
+        }
         val isShifted = mode != KeyboardMode.NORMAL
         return when (dir) {
             Direction.N  -> if (isShifted) InputAction.MOVE_END else InputAction.MOVE_HOME
@@ -127,7 +143,10 @@ class KeyboardLogic {
         }
     }
 
-    fun getDoubleSwipeAction(dir: Direction): InputAction? {
+    fun getDoubleSwipeAction(dir: Direction, customLayout: CustomLayout? = null): InputAction? {
+        if (customLayout != null) {
+            return customLayout.doubleSwipeMap[dir]
+        }
         return when (dir) {
             Direction.N  -> InputAction.DPAD_UP
             Direction.NE -> InputAction.PAGE_UP

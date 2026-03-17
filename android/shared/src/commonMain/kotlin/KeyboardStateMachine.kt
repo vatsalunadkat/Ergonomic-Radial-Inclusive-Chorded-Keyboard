@@ -27,6 +27,7 @@ class KeyboardStateMachine(
         private set
     var leftHandedMode = false
         private set
+    var activeCustomLayout: CustomLayout? = null
     private var isChordExecuted = false
 
     // 协程计时器任务
@@ -89,21 +90,21 @@ class KeyboardStateMachine(
     // 获取用于 UI 渲染的实时预览字符
     fun getPreviewText(): String {
         return if (leftActiveDir != Direction.NONE && rightActiveDir != Direction.NONE) {
-            processor.getChordResult(leftActiveDir, rightActiveDir, currentMode, currentLayoutType)
+            processor.getChordResult(leftActiveDir, rightActiveDir, currentMode, currentLayoutType, activeCustomLayout)
         } else {
             ""
         }
     }
 
     fun getCharactersForDirection(dir: Direction): List<String> {
-        return processor.getCharactersForDirection(dir, currentMode, currentLayoutType)
+        return processor.getCharactersForDirection(dir, currentMode, currentLayoutType, activeCustomLayout)
     }
 
     private fun fireChord(left: Direction, right: Direction) {
         if (left == Direction.NONE || right == Direction.NONE) return
         isChordExecuted = true
 
-        val text = processor.getChordResult(left, right, currentMode, currentLayoutType)
+        val text = processor.getChordResult(left, right, currentMode, currentLayoutType, activeCustomLayout)
         if (text.isNotEmpty()) {
             delegate.commitText(text) // 呼叫代理上屏！
         }
@@ -121,7 +122,7 @@ class KeyboardStateMachine(
             singleSwipeJob?.cancel()
             pendingRightDir = Direction.NONE
 
-            val action = processor.getDoubleSwipeAction(dir)
+            val action = processor.getDoubleSwipeAction(dir, activeCustomLayout)
             if (action != null) delegate.sendInputAction(action)
         } else {
             // 防御异向连滑漏洞
@@ -142,7 +143,8 @@ class KeyboardStateMachine(
     }
 
     private fun executeSingleSwipe(dir: Direction) {
-        val result = processor.getSingleSwipeResult(dir, currentMode)
+        val customLayout = if (currentLayoutType == LayoutType.CUSTOM) activeCustomLayout else null
+        val result = processor.getSingleSwipeResult(dir, currentMode, customLayout)
         when (result) {
             is String -> delegate.commitText(result)
             is InputAction -> {
