@@ -75,9 +75,26 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
             }
             stateMachine.setLayoutType(layoutType)
             if (layoutType == LayoutType.CUSTOM && customId.isNotEmpty()) {
-                stateMachine.activeCustomLayout = customLayoutManager.getById(customId)
+                val cl = customLayoutManager.getById(customId)
+                stateMachine.activeCustomLayout = cl
+                if (::leftJoystick.isInitialized) {
+                    leftJoystick.customCharsNormal = cl?.normalChordMap
+                    leftJoystick.customCharsShifted = cl?.shiftedChordMap
+                }
+                if (::rightJoystick.isInitialized) {
+                    rightJoystick.customCharsNormal = cl?.normalChordMap
+                    rightJoystick.customCharsShifted = cl?.shiftedChordMap
+                }
             } else {
                 stateMachine.activeCustomLayout = null
+                if (::leftJoystick.isInitialized) {
+                    leftJoystick.customCharsNormal = null
+                    leftJoystick.customCharsShifted = null
+                }
+                if (::rightJoystick.isInitialized) {
+                    rightJoystick.customCharsNormal = null
+                    rightJoystick.customCharsShifted = null
+                }
             }
             if (::leftJoystick.isInitialized) leftJoystick.layoutType = layoutType
             if (::rightJoystick.isInitialized) rightJoystick.layoutType = layoutType
@@ -144,6 +161,15 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         val currentLayout = stateMachine.currentLayoutType
         leftJoystick.layoutType = currentLayout
         rightJoystick.layoutType = currentLayout
+
+        // Apply custom layout data if active
+        val cl = stateMachine.activeCustomLayout
+        if (currentLayout == LayoutType.CUSTOM && cl != null) {
+            leftJoystick.customCharsNormal = cl.normalChordMap
+            leftJoystick.customCharsShifted = cl.shiftedChordMap
+            rightJoystick.customCharsNormal = cl.normalChordMap
+            rightJoystick.customCharsShifted = cl.shiftedChordMap
+        }
 
         // Apply current color palette to the newly created joystick views
         val currentPalette = stateMachine.currentPaletteType
@@ -341,6 +367,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
                     typeface = Typeface.create(baseTf, Typeface.BOLD)
                     gravity = Gravity.CENTER
                     minWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20f, resources.displayMetrics).toInt()
+                    includeFontPadding = true
                     setShadowLayer(1.5f, 0f, 0f, Color.argb(166, 255, 255, 255))
                 }
                 val lp = LinearLayout.LayoutParams(

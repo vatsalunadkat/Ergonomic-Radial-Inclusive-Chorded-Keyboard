@@ -13,9 +13,11 @@
         <FrameLayout
             android:id="@+id/live_preview_container"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="56dp"
             android:visibility="invisible"
-            android:gravity="center">
+            android:gravity="center"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
             <LinearLayout
                 android:id="@+id/live_preview_capsule"
@@ -23,6 +25,8 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:orientation="horizontal"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 android:paddingHorizontal="18dp"
                 android:paddingVertical="10dp"
                 android:elevation="6dp"

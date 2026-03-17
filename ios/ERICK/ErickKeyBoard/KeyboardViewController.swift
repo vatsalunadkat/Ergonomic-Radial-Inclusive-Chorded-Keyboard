@@ -22,6 +22,8 @@ class KeyboardViewModel: ObservableObject {
     @Published var isLeftHanded: Bool = false
     @Published var isDarkMode: Bool = false
     @Published var fontPreference: String = "system"
+    @Published var customNormalSections: [[String]]? = nil  // 8 directions × 8 chars each
+    @Published var customShiftedSections: [[String]]? = nil
 
     var resolvedFont: Font {
         switch fontPreference {
@@ -73,7 +75,9 @@ struct KeyboardContainerView: View {
                         keyboardMode: viewModel.keyboardMode,
                         isEfficiency: viewModel.isEfficiency,
                         colorPaletteKey: viewModel.colorPaletteKey,
-                        fontPreference: viewModel.fontPreference
+                        fontPreference: viewModel.fontPreference,
+                        customNormalSections: viewModel.customNormalSections,
+                        customShiftedSections: viewModel.customShiftedSections
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, true, isDownOrMove, isUp)
                     }
@@ -85,7 +89,9 @@ struct KeyboardContainerView: View {
                         keyboardMode: viewModel.keyboardMode,
                         isEfficiency: viewModel.isEfficiency,
                         colorPaletteKey: viewModel.colorPaletteKey,
-                        fontPreference: viewModel.fontPreference
+                        fontPreference: viewModel.fontPreference,
+                        customNormalSections: viewModel.customNormalSections,
+                        customShiftedSections: viewModel.customShiftedSections
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, false, isDownOrMove, isUp)
                     }
@@ -364,12 +370,24 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
             manager.loadAll()
             let customId = activeCustomLayoutId
             if !customId.isEmpty {
-                stateMachine.activeCustomLayout = manager.getById(id: customId)
+                let cl = manager.getById(id: customId)
+                stateMachine.activeCustomLayout = cl
+                if let cl = cl {
+                    viewModel.customNormalSections = Self.customLayoutToSections(cl.normalChordMap)
+                    viewModel.customShiftedSections = Self.customLayoutToSections(cl.shiftedChordMap)
+                } else {
+                    viewModel.customNormalSections = nil
+                    viewModel.customShiftedSections = nil
+                }
             } else {
                 stateMachine.activeCustomLayout = nil
+                viewModel.customNormalSections = nil
+                viewModel.customShiftedSections = nil
             }
         } else {
             stateMachine.activeCustomLayout = nil
+            viewModel.customNormalSections = nil
+            viewModel.customShiftedSections = nil
         }
 
         viewModel.colorPaletteKey = currentColorPaletteKey
@@ -447,6 +465,26 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
             mirroredMode = mirroredMode == .capsLocked ? .normal : .capsLocked
         default:
             break
+        }
+    }
+
+    /// Converts a KMP Direction-keyed chord map to an ordered [[String]] array for the SwiftUI JoystickView.
+    private static func customLayoutToSections(_ chordMap: [Direction: [String]]) -> [[String]] {
+        let dirOrder: [Direction] = [.n, .ne, .e, .se, .s, .sw, .w, .nw]
+        return dirOrder.map { dir in
+            let chars = chordMap[dir] ?? []
+            // Pad to 8 entries if shorter
+            var result = chars.map { $0 as String }
+            while result.count < 8 { result.append("") }
+            return result
+        }
+    }
+
+    private func wheelDirectionIndex(_ dir: WheelDirection) -> Int {
+        switch dir {
+        case .n: return 0; case .ne: return 1; case .e: return 2; case .se: return 3
+        case .s: return 4; case .sw: return 5; case .w: return 6; case .nw: return 7
+        case .none: return -1
         }
     }
 
@@ -532,7 +570,14 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
 
         let items: [String]?
 
-        if isEfficiencyLayout {
+        // Use custom layout data if available
+        let customSections = mode.usesShiftedSymbols ? viewModel.customShiftedSections : viewModel.customNormalSections
+        if let sections = customSections {
+            let dirIndex = wheelDirectionIndex(direction)
+            guard dirIndex >= 0 && dirIndex < sections.count else { return nil }
+            let chars = sections[dirIndex].filter { !$0.isEmpty }
+            items = chars.isEmpty ? nil : chars
+        } else if isEfficiencyLayout {
             // Efficiency layout — frequency-optimized character placement
             switch (direction, mode.usesShiftedSymbols) {
             case (.n, false):  items = ["t", "s", "g", "7", "=", "4", "k"]
@@ -625,6 +670,17 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
     /// Uses the full 8-slot layout data (including empty slots) to get the correct position.
     private func characterAtRightIndex(_ index: Int, leftDir: WheelDirection, mode: WheelMode) -> String? {
         guard index >= 0 && index < 8 else { return nil }
+
+        // Use custom layout data if available
+        let customSections = mode.usesShiftedSymbols ? viewModel.customShiftedSections : viewModel.customNormalSections
+        if let sections = customSections {
+            let dirIndex = wheelDirectionIndex(leftDir)
+            guard dirIndex >= 0 && dirIndex < sections.count else { return nil }
+            let chars = sections[dirIndex]
+            guard index < chars.count else { return nil }
+            let ch = chars[index]
+            return ch.isEmpty ? nil : ch
+        }
 
         let fullSlots: [String]
         if isEfficiencyLayout {
