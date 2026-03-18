@@ -36,24 +36,17 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun ERICKTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    themeMode: String = "system",
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val effectiveDarkTheme = when (themeMode) {
-        "light" -> false
-        "dark" -> true
-        else -> darkTheme // system default
-    }
-
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (effectiveDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
 
-        effectiveDarkTheme -> DarkColorScheme
+        darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 

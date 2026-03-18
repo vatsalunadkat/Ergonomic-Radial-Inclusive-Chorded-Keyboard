@@ -9,6 +9,7 @@ class KeyboardStateMachine(
 ) {
     private val processor = KeyboardLogic()
     private val DEADZONE_RADIUS = 40f
+    private val DOUBLE_SWIPE_TIMEOUT = 250L
 
     // 核心状态
     private var leftActiveDir = Direction.NONE
@@ -24,17 +25,14 @@ class KeyboardStateMachine(
         private set
     var currentPaletteType = ColorPaletteType.DEFAULT
         private set
-    var leftHandedMode = false
-        private set
-    var activeCustomLayout: CustomLayout? = null
     private var isChordExecuted = false
+
+    // 协程计时器任务
+    private var singleSwipeJob: Job? = null
+    private var pendingRightDir = Direction.NONE
 
     // 接收来自原生平台的触摸更新
     fun handleTouch(x: Float, y: Float, isLeft: Boolean, actionDownOrMove: Boolean, actionUp: Boolean) {
-        // In left-handed mode, swap dial roles so the physical left joystick
-        // acts as the right (color/action) dial and vice versa.
-        val effectiveIsLeft = if (leftHandedMode) !isLeft else isLeft
-
         val distance = hypot(x.toDouble(), y.toDouble()).toFloat()
         val currentDir = if (distance > DEADZONE_RADIUS) {
             processor.getDirectionFromXY(x, y)
@@ -43,9 +41,9 @@ class KeyboardStateMachine(
         }
 
         if (actionDownOrMove) {
-            if (effectiveIsLeft) leftActiveDir = currentDir else rightActiveDir = currentDir
+            if (isLeft) leftActiveDir = currentDir else rightActiveDir = currentDir
         } else if (actionUp) {
-            if (effectiveIsLeft) {
+            if (isLeft) {
                 if (rightActiveDir != Direction.NONE && !isChordExecuted) {
                     fireChord(leftActiveDir, rightActiveDir)
                 }
@@ -74,10 +72,6 @@ class KeyboardStateMachine(
         currentPaletteType = palette
     }
 
-    fun setLeftHandedMode(enabled: Boolean) {
-        leftHandedMode = enabled
-    }
-
     fun getCurrentPalette(): List<ColorEntry> {
         return ColorPalettes.getPalette(currentPaletteType)
     }
@@ -85,25 +79,21 @@ class KeyboardStateMachine(
     // 获取用于 UI 渲染的实时预览字符
     fun getPreviewText(): String {
         return if (leftActiveDir != Direction.NONE && rightActiveDir != Direction.NONE) {
-            processor.getChordResult(leftActiveDir, rightActiveDir, currentMode, currentLayoutType, activeCustomLayout)
+            processor.getChordResult(leftActiveDir, rightActiveDir, currentMode, currentLayoutType)
         } else {
             ""
         }
     }
 
     fun getCharactersForDirection(dir: Direction): List<String> {
-        return processor.getCharactersForDirection(dir, currentMode, currentLayoutType, activeCustomLayout)
-    }
-
-    fun getCharactersAtPosition(rightDir: Direction): List<Pair<Direction, String>> {
-        return processor.getCharactersAtPosition(rightDir, currentMode, currentLayoutType, activeCustomLayout)
+        return processor.getCharactersForDirection(dir, currentMode, currentLayoutType)
     }
 
     private fun fireChord(left: Direction, right: Direction) {
         if (left == Direction.NONE || right == Direction.NONE) return
         isChordExecuted = true
 
-        val text = processor.getChordResult(left, right, currentMode, currentLayoutType, activeCustomLayout)
+        val text = processor.getChordResult(left, right, currentMode, currentLayoutType)
         if (text.isNotEmpty()) {
             delegate.commitText(text) // 呼叫代理上屏！
         }
@@ -115,12 +105,34 @@ class KeyboardStateMachine(
 
     private fun handleRightOnlySwipe(dir: Direction) {
         if (dir == Direction.NONE) return
-        executeSingleSwipe(dir)
+
+        if (pendingRightDir == dir && singleSwipeJob?.isActive == true) {
+            // 触发双击
+            singleSwipeJob?.cancel()
+            pendingRightDir = Direction.NONE
+
+            val action = processor.getDoubleSwipeAction(dir)
+            if (action != null) delegate.sendInputAction(action)
+        } else {
+            // 防御异向连滑漏洞
+            if (singleSwipeJob?.isActive == true) {
+                singleSwipeJob?.cancel()
+                executeSingleSwipe(pendingRightDir)
+            }
+
+            pendingRightDir = dir
+            // 启动协程计时器
+            singleSwipeJob = coroutineScope.launch {
+                delay(DOUBLE_SWIPE_TIMEOUT)
+                // 如果倒计时结束还没被取消，触发单击
+                executeSingleSwipe(dir)
+                pendingRightDir = Direction.NONE
+            }
+        }
     }
 
     private fun executeSingleSwipe(dir: Direction) {
-        val customLayout = if (currentLayoutType == LayoutType.CUSTOM) activeCustomLayout else null
-        val result = processor.getSingleSwipeResult(dir, currentMode, customLayout)
+        val result = processor.getSingleSwipeResult(dir, currentMode)
         when (result) {
             is String -> delegate.commitText(result)
             is InputAction -> {
