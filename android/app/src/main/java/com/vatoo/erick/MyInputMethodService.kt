@@ -1,6 +1,7 @@
 package com.vatoo.erick
 
 import android.inputmethodservice.InputMethodService
+import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -121,6 +122,20 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
             dispatchTouchToStateMachine(event, isLeft = false, joystick = rightJoystick)
             true
         }
+
+        // 物理游戏手柄：接收摇杆输入（DualShock、8BitDo 等）
+        view.isFocusable = true
+        view.isFocusableInTouchMode = true
+        view.setOnGenericMotionListener { _, event ->
+            if (event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK ||
+                event.source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) {
+                dispatchControllerToStateMachine(event)
+                true
+            } else {
+                false
+            }
+        }
+
         //Setting
         val settingsBtn = view.findViewById<ImageButton>(R.id.btn_settings)
         settingsBtn?.setOnClickListener {
@@ -160,6 +175,58 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         // rightJoystick.setPreviewText(stateMachine.getPreviewText())
 
         updateLivePreview()
+    }
+
+    private val controllerDeadZone = 0.25f
+    private val controllerToTouchScale = 80f
+    private var prevControllerLeftActive = false
+    private var prevControllerRightActive = false
+
+    private fun dispatchControllerToStateMachine(event: MotionEvent) {
+        val leftX = event.getAxisValue(MotionEvent.AXIS_X)
+        val leftY = event.getAxisValue(MotionEvent.AXIS_Y)
+        val rightX = event.getAxisValue(MotionEvent.AXIS_Z)
+        val rightY = event.getAxisValue(MotionEvent.AXIS_RZ)
+
+        val (lnx, lny) = applyControllerDeadZone(leftX, leftY)
+        val (rnx, rny) = applyControllerDeadZone(rightX, rightY)
+
+        leftJoystick.updateThumbFromController(lnx, lny)
+        rightJoystick.updateThumbFromController(rnx, rny)
+
+        val leftActive = kotlin.math.abs(lnx) > 0.01f || kotlin.math.abs(lny) > 0.01f
+        val rightActive = kotlin.math.abs(rnx) > 0.01f || kotlin.math.abs(rny) > 0.01f
+
+        val scale = controllerToTouchScale
+        val leftDx = lnx * scale
+        val leftDy = -lny * scale
+        val rightDx = rnx * scale
+        val rightDy = -rny * scale
+
+        if (leftActive) {
+            stateMachine.handleTouch(leftDx, leftDy, isLeft = true, actionDownOrMove = true, actionUp = false)
+        } else if (prevControllerLeftActive) {
+            stateMachine.handleTouch(0f, 0f, isLeft = true, actionDownOrMove = false, actionUp = true)
+            leftJoystick.resetThumb()
+        }
+        if (rightActive) {
+            stateMachine.handleTouch(rightDx, rightDy, isLeft = false, actionDownOrMove = true, actionUp = false)
+        } else if (prevControllerRightActive) {
+            stateMachine.handleTouch(0f, 0f, isLeft = false, actionDownOrMove = false, actionUp = true)
+            rightJoystick.resetThumb()
+        }
+
+        prevControllerLeftActive = leftActive
+        prevControllerRightActive = rightActive
+        rightJoystick.keyboardMode = stateMachine.currentMode
+        updateLivePreview()
+    }
+
+    private fun applyControllerDeadZone(x: Float, y: Float): Pair<Float, Float> {
+        val mag = kotlin.math.hypot(x.toDouble(), y.toDouble()).toFloat()
+        if (mag <= controllerDeadZone) return 0f to 0f
+        val scale = (mag - controllerDeadZone) / (1f - controllerDeadZone)
+        return (x / mag * scale) to (y / mag * scale)
     }
 
     private fun updateLivePreview() {

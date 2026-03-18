@@ -747,6 +747,18 @@ class JoystickView @JvmOverloads constructor(
         invalidate()
     }
 
+    /**
+     * 物理手柄摇杆：接收归一化坐标 (-1..1)，转换为视图坐标并更新拇指位置与方向。
+     * 用于 8BitDo、DualShock 等蓝牙/USB 游戏手柄。
+     */
+    fun updateThumbFromController(normalizedX: Float, normalizedY: Float) {
+        val maxRadius = if (isRightSide) baseRadius * 0.3f else baseRadius * 0.4f
+        // Screen Y 向上为正，控制器 Y 向上为负，需取反
+        val dx = normalizedX * maxRadius
+        val dy = -normalizedY * maxRadius
+        updateThumb(dx, dy)
+    }
+
     fun setPreviewText(text: String) {
         if (previewText != text) {
             previewText = text
