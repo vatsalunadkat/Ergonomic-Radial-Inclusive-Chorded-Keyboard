@@ -188,10 +188,7 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         // Kotlin 的全局函数在 Swift 里会自动被放到带 'Kt' 后缀的命名空间下
 //        stateMachine = // Swift 现在会极其自然地调用我们刚刚写的那个次级构造函数！
         // 使用我们在 Kotlin 里建好的工厂 (KeyboardFactory) 去拿货
-        stateMachine = KeyboardFactory.shared.createEngine(
-            delegate: self,
-            layoutType: LayoutType.logical
-        )
+        stateMachine = KeyboardFactory.shared.createEngine(delegate: self)
         
         // 读取布局偏好并设置到状态机
         applyLayoutPreference()
@@ -458,6 +455,14 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         self.textDocumentProxy.insertText(text)
     }
 
+    func onModeChanged(mode: KeyboardMode) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.mirroredMode = self.wheelMode(for: mode)
+            self.refreshViewState()
+        }
+    }
+
     func sendInputAction(action: InputAction) {
         // Kotlin 的枚举在 Swift 中会自动变成小写驼峰式
         switch action {
@@ -505,7 +510,7 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
 
     private func applyLayoutPreference() {
         let layoutType: LayoutType = isEfficiencyLayout ? .efficiency : .logical
-        stateMachine.setLayoutType(type: layoutType)
+        stateMachine.setLayoutType(layout: layoutType)
         viewModel.isEfficiency = isEfficiencyLayout
         viewModel.colorPaletteKey = currentColorPaletteKey
     }
@@ -675,6 +680,15 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         case .normal: return .normal
         case .shifted: return .shifted
         case .capsLocked: return .capsLocked
+        }
+    }
+
+    private func wheelMode(for mode: KeyboardMode) -> WheelMode {
+        switch mode {
+        case .normal: return .normal
+        case .shifted: return .shifted
+        case .capsLocked: return .capsLocked
+        default: return .normal
         }
     }
 }
