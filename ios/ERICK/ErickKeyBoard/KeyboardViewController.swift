@@ -21,9 +21,32 @@ class KeyboardViewModel: ObservableObject {
     @Published var keyboardMode: WheelMode = .normal
     @Published var isEfficiency: Bool = false
     @Published var colorPaletteKey: String = "default"
+    @Published var isLeftHanded: Bool = false
+    @Published var isDarkMode: Bool = false
+    @Published var fontPreference: String = "system"
+    @Published var customNormalSections: [[String]]? = nil  // 8 directions × 8 chars each
+    @Published var customShiftedSections: [[String]]? = nil
     /// Physical controller stick position (-1...1), used to move on-screen thumb when controller is active
     @Published var leftControllerStickNormalized: (x: Float, y: Float) = (0, 0)
     @Published var rightControllerStickNormalized: (x: Float, y: Float) = (0, 0)
+
+    var resolvedFont: Font {
+        switch fontPreference {
+        case "verdana": return .custom("Verdana", size: 14)
+        case "georgia": return .custom("Georgia", size: 14)
+        case "opendyslexic": return .custom("OpenDyslexic", size: 14)
+        default: return .system(size: 14)
+        }
+    }
+
+    func resolvedUIFont(size: CGFloat) -> UIFont {
+        switch fontPreference {
+        case "verdana": return UIFont(name: "Verdana", size: size) ?? .systemFont(ofSize: size)
+        case "georgia": return UIFont(name: "Georgia", size: size) ?? .systemFont(ofSize: size)
+        case "opendyslexic": return UIFont(name: "OpenDyslexic", size: size) ?? .systemFont(ofSize: size)
+        default: return .systemFont(ofSize: size)
+        }
+    }
 }
 
 // 2. SwiftUI 键盘容器：把左右两个摇杆横向排列
@@ -37,7 +60,7 @@ struct KeyboardContainerView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(hex: "#ECEFF1")
+            (viewModel.isDarkMode ? Color(hex: "#1E1E1E") : Color(hex: "#ECEFF1"))
                 .ignoresSafeArea()
 
             GeometryReader { geometry in
@@ -53,11 +76,14 @@ struct KeyboardContainerView: View {
 
                 HStack(spacing: controlSpacing) {
                     JoystickView(
-                        isRightSide: false,
+                        isRightSide: viewModel.isLeftHanded,
                         activeDirection: viewModel.leftDirection,
                         keyboardMode: viewModel.keyboardMode,
                         isEfficiency: viewModel.isEfficiency,
                         colorPaletteKey: viewModel.colorPaletteKey,
+                        fontPreference: viewModel.fontPreference,
+                        customNormalSections: viewModel.customNormalSections,
+                        customShiftedSections: viewModel.customShiftedSections,
                         controllerStickNormalized: viewModel.leftControllerStickNormalized
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, true, isDownOrMove, isUp)
@@ -65,11 +91,14 @@ struct KeyboardContainerView: View {
                     .frame(width: leftSize, height: leftSize)
 
                     JoystickView(
-                        isRightSide: true,
+                        isRightSide: !viewModel.isLeftHanded,
                         activeDirection: viewModel.rightDirection,
                         keyboardMode: viewModel.keyboardMode,
                         isEfficiency: viewModel.isEfficiency,
                         colorPaletteKey: viewModel.colorPaletteKey,
+                        fontPreference: viewModel.fontPreference,
+                        customNormalSections: viewModel.customNormalSections,
+                        customShiftedSections: viewModel.customShiftedSections,
                         controllerStickNormalized: viewModel.rightControllerStickNormalized
                     ) { dx, dy, isDownOrMove, isUp in
                         onTouch(dx, dy, false, isDownOrMove, isUp)
@@ -88,12 +117,38 @@ struct KeyboardContainerView: View {
             if !viewModel.previewItems.isEmpty {
                 KeyboardPreviewBar(
                     items: viewModel.previewItems,
-                    highlightedIndex: viewModel.highlightedPreviewIndex
+                    highlightedIndex: viewModel.highlightedPreviewIndex,
+                    isDarkMode: viewModel.isDarkMode,
+                    fontPreference: viewModel.fontPreference
                 )
                     .padding(.top, 8)
             }
 
             HStack {
+                // Shift / Caps Lock indicator
+                if viewModel.keyboardMode == .shifted {
+                    Text("⇧ Shift")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(viewModel.isDarkMode ? .white : Color(hex: "#333333"))
+                        .padding(.horizontal, 6)
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                        .accessibilityLabel("Shift mode active")
+                } else if viewModel.keyboardMode == .capsLocked {
+                    Text("⇧⇧ CAPS")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.red)
+                        )
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                        .accessibilityLabel("Caps Lock active")
+                }
+
                 Spacer()
                 Button(action: {
                     withAnimation {
@@ -107,6 +162,8 @@ struct KeyboardContainerView: View {
                         .padding(.top, 4)
                 }
             }
+            .padding(.leading, 8)
+            .animation(.easeInOut(duration: 0.15), value: viewModel.keyboardMode)
 
             // 覆盖设置页面
             if showSettings {
@@ -127,16 +184,30 @@ struct KeyboardContainerView: View {
 private struct KeyboardPreviewBar: View {
     let items: [KeyboardPreviewItem]
     let highlightedIndex: Int?
+    var isDarkMode: Bool = false
+    var fontPreference: String = "system"
+
+    private func resolvedPreviewFont(size: CGFloat, weight: Font.Weight) -> Font {
+        switch fontPreference {
+        case "verdana":
+            return .custom("Verdana", size: size).weight(weight)
+        case "georgia":
+            return .custom("Georgia", size: size).weight(weight)
+        case "opendyslexic":
+            return .custom("OpenDyslexic", size: size).weight(weight)
+        default:
+            return .system(size: size, weight: weight, design: .rounded)
+        }
+    }
 
     var body: some View {
         HStack(spacing: 8) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 Text(item.text)
                     .font(
-                        .system(
+                        resolvedPreviewFont(
                             size: highlightedIndex == index ? 27 : 22,
-                            weight: highlightedIndex == index ? .heavy : .bold,
-                            design: .rounded
+                            weight: highlightedIndex == index ? .heavy : .bold
                         )
                     )
                     .foregroundColor(item.color)
@@ -150,7 +221,7 @@ private struct KeyboardPreviewBar: View {
         .padding(.vertical, 10)
         .background(
             Capsule()
-                .fill(Color.white.opacity(0.96))
+                .fill(isDarkMode ? Color(hex: "#323232").opacity(0.96) : Color.white.opacity(0.96))
                 .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
         )
         .frame(maxWidth: .infinity, alignment: .center)
@@ -502,17 +573,82 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         return Self.appGroupDefaults.string(forKey: "layout_type") == "efficiency"
     }
 
+    private var isCustomLayout: Bool {
+        return Self.appGroupDefaults.string(forKey: "layout_type") == "custom"
+    }
+
+    private var activeCustomLayoutId: String {
+        return Self.appGroupDefaults.string(forKey: "custom_layout_id") ?? ""
+    }
+
     private var currentColorPaletteKey: String {
         let enabled = Self.appGroupDefaults.bool(forKey: "colorblind_mode")
         guard enabled else { return "default" }
         return Self.appGroupDefaults.string(forKey: "color_palette") ?? "okabe_ito"
     }
 
+    private var isLeftHandedMode: Bool {
+        return Self.appGroupDefaults.bool(forKey: "left_handed_mode")
+    }
+
     private func applyLayoutPreference() {
-        let layoutType: LayoutType = isEfficiencyLayout ? .efficiency : .logical
+        let layoutType: LayoutType
+        if isCustomLayout {
+            layoutType = .custom
+        } else if isEfficiencyLayout {
+            layoutType = .efficiency
+        } else {
+            layoutType = .logical
+        }
         stateMachine.setLayoutType(layout: layoutType)
         viewModel.isEfficiency = isEfficiencyLayout
+
+        // Load custom layout if applicable
+        if layoutType == LayoutType.custom {
+            let storage = IOSCustomLayoutStorage()
+            let manager = CustomLayoutManager(storage: storage)
+            manager.loadAll()
+            let customId = activeCustomLayoutId
+            if !customId.isEmpty {
+                let cl = manager.getById(id: customId)
+                stateMachine.activeCustomLayout = cl
+                if let cl = cl {
+                    viewModel.customNormalSections = Self.customLayoutToSections(cl.normalChordMap)
+                    viewModel.customShiftedSections = Self.customLayoutToSections(cl.shiftedChordMap)
+                } else {
+                    viewModel.customNormalSections = nil
+                    viewModel.customShiftedSections = nil
+                }
+            } else {
+                stateMachine.activeCustomLayout = nil
+                viewModel.customNormalSections = nil
+                viewModel.customShiftedSections = nil
+            }
+        } else {
+            stateMachine.activeCustomLayout = nil
+            viewModel.customNormalSections = nil
+            viewModel.customShiftedSections = nil
+        }
+
         viewModel.colorPaletteKey = currentColorPaletteKey
+
+        let leftHanded = isLeftHandedMode
+        stateMachine.setLeftHandedMode(enabled: leftHanded)
+        viewModel.isLeftHanded = leftHanded
+
+        // Apply theme mode
+        let themeMode = Self.appGroupDefaults.string(forKey: "theme_mode") ?? "system"
+        switch themeMode {
+        case "dark":
+            viewModel.isDarkMode = true
+        case "light":
+            viewModel.isDarkMode = false
+        default:
+            viewModel.isDarkMode = self.traitCollection.userInterfaceStyle == .dark
+        }
+
+        // Apply font preference
+        viewModel.fontPreference = Self.appGroupDefaults.string(forKey: "font_preference") ?? "system"
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -541,9 +677,11 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
 
     private func syncVisualState(dx: Float, dy: Float, isLeft: Bool, isDown: Bool, isUp: Bool) {
         let currentDirection = direction(forX: dx, y: dy)
+        // In left-handed mode, swap which physical side is the "letter" vs "action" dial
+        let effectiveIsLeft = viewModel.isLeftHanded ? !isLeft : isLeft
 
         if isDown {
-            if isLeft {
+            if effectiveIsLeft {
                 mirroredLeftDirection = currentDirection
             } else {
                 mirroredRightDirection = currentDirection
@@ -553,7 +691,7 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
 
         guard isUp else { return }
 
-        if isLeft {
+        if effectiveIsLeft {
             if mirroredRightDirection != .none && !mirroredChordExecuted {
                 mirroredChordExecuted = true
                 if mirroredMode == .shifted {
@@ -623,14 +761,24 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
     }
 
     private func updatePreviewState() {
-        guard let items = previewItems(for: mirroredLeftDirection, mode: mirroredMode) else {
+        if mirroredLeftDirection != .none {
+            // Left-dial hold: show characters for that group
+            guard let items = previewItems(for: mirroredLeftDirection, mode: mirroredMode) else {
+                viewModel.previewItems = []
+                viewModel.highlightedPreviewIndex = nil
+                return
+            }
+            viewModel.previewItems = items
+            viewModel.highlightedPreviewIndex = items.firstIndex(where: { $0.direction == mirroredRightDirection })
+        } else if mirroredRightDirection != .none {
+            // Right-dial-only hold: show character at this position across all left-dial groups
+            let items = rightDialPreviewItems(for: mirroredRightDirection, mode: mirroredMode)
+            viewModel.previewItems = items
+            viewModel.highlightedPreviewIndex = nil
+        } else {
             viewModel.previewItems = []
             viewModel.highlightedPreviewIndex = nil
-            return
         }
-
-        viewModel.previewItems = items
-        viewModel.highlightedPreviewIndex = items.firstIndex(where: { $0.direction == mirroredRightDirection })
     }
 
     private func previewItems(for direction: WheelDirection, mode: WheelMode) -> [KeyboardPreviewItem]? {
@@ -639,7 +787,14 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
 
         let leftDir = sharedDirection(for: direction)
         let sharedMode = sharedMode(for: mode)
-        let layoutType: LayoutType = isEfficiencyLayout ? .efficiency : .logical
+        let layoutType: LayoutType
+        if isCustomLayout {
+            layoutType = .custom
+        } else if isEfficiencyLayout {
+            layoutType = .efficiency
+        } else {
+            layoutType = .logical
+        }
 
         let items = WheelDirection.orderedDirections.enumerated().compactMap { index, rightDirection -> KeyboardPreviewItem? in
             let text = keyboardLogic.getChordResult(
@@ -659,6 +814,67 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
         }
 
         return items.isEmpty ? nil : items
+    }
+
+    /// Right-dial-only preview: returns the character at the given right-dial position
+    /// across all 8 left-dial groups.
+    private func rightDialPreviewItems(for direction: WheelDirection, mode: WheelMode) -> [KeyboardPreviewItem] {
+        guard direction != .none else { return [] }
+
+        let palette = ColorPaletteDefinitions.palette(for: currentColorPaletteKey)
+        let dirIndex = wheelDirectionIndex(direction)
+        guard dirIndex >= 0 && dirIndex < palette.count else { return [] }
+        let color = Color(hex: palette[dirIndex].hex)
+
+        let sharedRightDir = sharedDirection(for: direction)
+        let sharedM = sharedMode(for: mode)
+        let layoutType: LayoutType
+        if isCustomLayout {
+            layoutType = .custom
+        } else if isEfficiencyLayout {
+            layoutType = .efficiency
+        } else {
+            layoutType = .logical
+        }
+
+        let allLeftDirs: [WheelDirection] = [.n, .ne, .e, .se, .s, .sw, .w, .nw]
+        var result: [KeyboardPreviewItem] = []
+        var itemId = 0
+
+        for leftDir in allLeftDirs {
+            let text = keyboardLogic.getChordResult(
+                leftDir: sharedDirection(for: leftDir),
+                rightDir: sharedRightDir,
+                mode: sharedM,
+                layout: layoutType
+            )
+            if !text.isEmpty {
+                result.append(KeyboardPreviewItem(id: itemId, direction: direction, text: text, color: color))
+                itemId += 1
+            }
+        }
+
+        return result
+    }
+
+    /// Converts a KMP Direction-keyed chord map to an ordered [[String]] array for the SwiftUI JoystickView.
+    private static func customLayoutToSections(_ chordMap: [Direction: [String]]) -> [[String]] {
+        let dirOrder: [Direction] = [.n, .ne, .e, .se, .s, .sw, .w, .nw]
+        return dirOrder.map { dir in
+            let chars = chordMap[dir] ?? []
+            // Pad to 8 entries if shorter
+            var result = chars.map { $0 as String }
+            while result.count < 8 { result.append("") }
+            return result
+        }
+    }
+
+    private func wheelDirectionIndex(_ dir: WheelDirection) -> Int {
+        switch dir {
+        case .n: return 0; case .ne: return 1; case .e: return 2; case .se: return 3
+        case .s: return 4; case .sw: return 5; case .w: return 6; case .nw: return 7
+        case .none: return -1
+        }
     }
 
     private func sharedDirection(for direction: WheelDirection) -> Direction {

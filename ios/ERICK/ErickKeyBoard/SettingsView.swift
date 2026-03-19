@@ -6,19 +6,25 @@
 //
 
 import SwiftUI
+import SharedKeyboard
 
 struct SettingsView: View {
-    private static let appGroupDefaults = UserDefaults(suiteName: "group.com.vatoo.erick") ?? .standard
+    static let appGroupDefaults = UserDefaults(suiteName: "group.com.vatoo.erick") ?? .standard
 
     @AppStorage("layout_type", store: SettingsView.appGroupDefaults) private var layoutType: String = "logical"
     @AppStorage("dark_theme", store: SettingsView.appGroupDefaults) private var darkTheme: Bool = false
+    @AppStorage("theme_mode", store: SettingsView.appGroupDefaults) private var themeMode: String = "system"
     @AppStorage("colorblind_mode", store: SettingsView.appGroupDefaults) private var colorblindMode: Bool = false
     @AppStorage("color_palette", store: SettingsView.appGroupDefaults) private var colorPalette: String = "okabe_ito"
     @AppStorage("left_handed_mode", store: SettingsView.appGroupDefaults) private var leftHandedMode: Bool = false
+    @AppStorage("custom_layout_id", store: SettingsView.appGroupDefaults) private var customLayoutId: String = ""
+    @AppStorage("font_preference", store: SettingsView.appGroupDefaults) private var fontPreference: String = "system"
     
     // Action closure when the user wants to dismiss settings from Keyboard Extension
     var onClose: (() -> Void)? = nil
     var onSettingsChanged: (() -> Void)? = nil
+
+    @State private var showCustomLayoutList = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,22 +42,94 @@ struct SettingsView: View {
                 Spacer()
             }
             .background(Color(UIColor.systemGray6))
-            
-            // Content
-            Form {
-                // Layout Section
-                Section(header: Text("Keyboard Layout")) {
-                    Picker("Layout Type", selection: $layoutType) {
-                        Text("Logical (A–Z)").tag("logical")
-                        Text("Efficiency").tag("efficiency")
+
+            if showCustomLayoutList {
+                CustomLayoutListView(onBack: { showCustomLayoutList = false })
+            } else {
+                mainSettingsForm
+            }
+        }
+        .onChange(of: layoutType) { _ in
+            onSettingsChanged?()
+        }
+        .onChange(of: colorblindMode) { _ in
+            onSettingsChanged?()
+        }
+        .onChange(of: colorPalette) { _ in
+            onSettingsChanged?()
+        }
+        .onChange(of: themeMode) { _ in
+            onSettingsChanged?()
+        }
+        .onChange(of: fontPreference) { _ in
+            onSettingsChanged?()
+        }
+        .onChange(of: leftHandedMode) { _ in
+            onSettingsChanged?()
+        }
+        .onChange(of: customLayoutId) { _ in
+            onSettingsChanged?()
+        }
+    }
+
+    private var mainSettingsForm: some View {
+        // Content
+        Form {
+            // Layout Section
+            Section(header: Text("Keyboard Layout")) {
+                Picker("Layout Type", selection: $layoutType) {
+                    Text("Logical (A–Z)").tag("logical")
+                    Text("Efficiency").tag("efficiency")
+                }
+                .pickerStyle(.inline)
+
+                // Custom layouts
+                let storage = IOSCustomLayoutStorage()
+                let manager = CustomLayoutManager(storage: storage)
+                let _ = manager.loadAll()
+                let customs = manager.getAll()
+                ForEach(Array(customs.enumerated()), id: \.element.id) { _, cl in
+                    Button(action: {
+                        customLayoutId = cl.id
+                        layoutType = "custom"
+                    }) {
+                        HStack {
+                            Image(systemName: layoutType == "custom" && customLayoutId == cl.id
+                                  ? "largecircle.fill.circle" : "circle")
+                                .foregroundColor(layoutType == "custom" && customLayoutId == cl.id ? .accentColor : .secondary)
+                            VStack(alignment: .leading) {
+                                Text(cl.name).foregroundColor(.primary)
+                                Text("Custom layout").font(.caption).foregroundColor(.secondary)
+                            }
+                        }
                     }
-                    .pickerStyle(.inline)
                 }
-                
-                // Appearance Section
-                Section(header: Text("Appearance")) {
-                    Toggle("Dark Theme", isOn: $darkTheme)
+
+                Button(action: { showCustomLayoutList = true }) {
+                    HStack {
+                        Image(systemName: "pencil.circle")
+                        Text("Manage Custom Layouts")
+                    }
                 }
+            }
+            
+            // Appearance Section
+            Section(header: Text("Appearance")) {
+                Picker("Theme", selection: $themeMode) {
+                    Text("System Default").tag("system")
+                    Text("Light").tag("light")
+                    Text("Dark").tag("dark")
+                }
+                .pickerStyle(.inline)
+            }
+
+            // Font Section
+            Section(header: Text("Font")) {
+                fontOption(key: "system", label: "System Default", font: .body)
+                fontOption(key: "verdana", label: "Verdana", font: .custom("Verdana", size: 17))
+                fontOption(key: "georgia", label: "Georgia", font: .custom("Georgia", size: 17))
+                fontOption(key: "opendyslexic", label: "OpenDyslexic", font: .custom("OpenDyslexic", size: 17))
+            }
 
                 // Accessibility Section
                 Section(header: Text("Accessibility")) {
@@ -117,14 +195,19 @@ struct SettingsView: View {
                 }
             }
         }
-        .onChange(of: layoutType) { _ in
-            onSettingsChanged?()
-        }
-        .onChange(of: colorblindMode) { _ in
-            onSettingsChanged?()
-        }
-        .onChange(of: colorPalette) { _ in
-            onSettingsChanged?()
+    }
+
+    @ViewBuilder
+    private func fontOption(key: String, label: String, font: Font) -> some View {
+        Button(action: { fontPreference = key }) {
+            HStack {
+                Image(systemName: fontPreference == key ? "largecircle.fill.circle" : "circle")
+                    .foregroundColor(fontPreference == key ? .accentColor : .secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(label).foregroundColor(.primary)
+                    Text("The quick brown fox").font(font).foregroundColor(.secondary)
+                }
+            }
         }
     }
 }
@@ -270,6 +353,341 @@ private struct ColorPaletteOption: View {
                         }
                     }
                     .padding(.leading, 28)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Custom Layout List View
+
+struct CustomLayoutListView: View {
+    var onBack: () -> Void
+
+    @State private var layouts: [CustomLayout] = []
+    @State private var showCreateBlank = false
+    @State private var showDuplicate = false
+    @State private var newLayoutName = ""
+    @State private var duplicateSource: LayoutType = .logical
+    @State private var editingLayout: CustomLayout? = nil
+    @State private var deleteTarget: CustomLayout? = nil
+
+    private func manager() -> CustomLayoutManager {
+        let m = CustomLayoutManager(storage: IOSCustomLayoutStorage())
+        m.loadAll()
+        return m
+    }
+
+    private func reloadLayouts() {
+        layouts = manager().getAll()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button(action: onBack) {
+                    Image(systemName: "arrow.left")
+                        .font(.title3)
+                        .padding()
+                }
+                Text("Custom Layouts")
+                    .font(.headline)
+                Spacer()
+                Menu {
+                    Button("Create Blank") { newLayoutName = ""; showCreateBlank = true }
+                    Button("Duplicate Built-in") { newLayoutName = ""; showDuplicate = true }
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .font(.title3)
+                        .padding()
+                }
+            }
+            .background(Color(UIColor.systemGray6))
+
+            if let editing = editingLayout {
+                CustomLayoutEditorView(
+                    layout: editing,
+                    onSave: { updated in
+                        let m = manager()
+                        let _ = m.save(layout: updated)
+                        reloadLayouts()
+                        editingLayout = nil
+                    },
+                    onBack: { editingLayout = nil }
+                )
+            } else if layouts.isEmpty {
+                Spacer()
+                Text("No custom layouts yet.\nTap + to create one.")
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+                Spacer()
+            } else {
+                List {
+                    ForEach(Array(layouts.enumerated()), id: \.element.id) { _, cl in
+                        Button(action: { editingLayout = cl }) {
+                            VStack(alignment: .leading) {
+                                Text(cl.name).font(.body)
+                                let count = cl.normalChordMap.values.flatMap { ($0 as! [String]) }.filter { !$0.isEmpty }.count
+                                Text("\(count) characters mapped")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) { deleteTarget = cl } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear { reloadLayouts() }
+        .alert("New Blank Layout", isPresented: $showCreateBlank) {
+            TextField("Layout Name", text: $newLayoutName)
+            Button("Create") {
+                let m = manager()
+                let layout = m.createBlank(name: newLayoutName)
+                let _ = m.save(layout: layout)
+                reloadLayouts()
+                editingLayout = layout
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Duplicate Built-in", isPresented: $showDuplicate) {
+            TextField("New Layout Name", text: $newLayoutName)
+            Button("Logical") {
+                let m = manager()
+                let layout = m.duplicateFromBuiltIn(sourceLayout: .logical, customName: newLayoutName)
+                let _ = m.save(layout: layout)
+                reloadLayouts()
+                editingLayout = layout
+            }
+            Button("Efficiency") {
+                let m = manager()
+                let layout = m.duplicateFromBuiltIn(sourceLayout: .efficiency, customName: newLayoutName)
+                let _ = m.save(layout: layout)
+                reloadLayouts()
+                editingLayout = layout
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Delete Layout?", isPresented: Binding(
+            get: { deleteTarget != nil },
+            set: { if !$0 { deleteTarget = nil } }
+        )) {
+            Button("Delete", role: .destructive) {
+                if let t = deleteTarget {
+                    let m = manager()
+                    m.delete(id: t.id)
+                    reloadLayouts()
+                    deleteTarget = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { deleteTarget = nil }
+        } message: {
+            Text("Delete \"\(deleteTarget?.name ?? "")\"? This cannot be undone.")
+        }
+    }
+}
+
+// MARK: - Custom Layout Editor View
+
+struct CustomLayoutEditorView: View {
+    let layout: CustomLayout
+    var onSave: (CustomLayout) -> Void
+    var onBack: () -> Void
+
+    @AppStorage("colorblind_mode", store: SettingsView.appGroupDefaults) private var colorblindMode: Bool = false
+    @AppStorage("color_palette", store: SettingsView.appGroupDefaults) private var colorPalette: String = "okabe_ito"
+
+    @State private var name: String = ""
+    @State private var selectedTab = 0
+
+    // Chord editing state — stored as dictionaries matching the KMP data model
+    @State private var normalChords: [String: [String]] = [:]
+    @State private var shiftedChords: [String: [String]] = [:]
+    @State private var singleSwipeNormal: [String: String] = [:]
+    @State private var singleSwipeShifted: [String: String] = [:]
+
+    private var currentPalette: [ColorPaletteEntry] {
+        if colorblindMode {
+            return ColorPaletteDefinitions.palette(for: colorPalette)
+        } else {
+            return ColorPaletteDefinitions.defaultPalette
+        }
+    }
+
+    private let allDirections = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    private let dirLabels = ["N (Up)", "NE", "E (Right)", "SE", "S (Down)", "SW", "W (Left)", "NW"]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button(action: onBack) {
+                    Image(systemName: "arrow.left")
+                        .font(.title3)
+                        .padding()
+                }
+                Text("Edit Layout")
+                    .font(.headline)
+                Spacer()
+                Button("Save") { saveLayout() }
+                    .padding()
+            }
+            .background(Color(UIColor.systemGray6))
+
+            TextField("Layout Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+
+            Picker("Section", selection: $selectedTab) {
+                Text("Normal").tag(0)
+                Text("Shifted").tag(1)
+                Text("Single Swipe").tag(2)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+
+            switch selectedTab {
+            case 0: chordEditor(chords: $normalChords, label: "Normal")
+            case 1: chordEditor(chords: $shiftedChords, label: "Shifted")
+            case 2: singleSwipeEditor
+            default: EmptyView()
+            }
+        }
+        .onAppear { loadFromLayout() }
+    }
+
+    private func loadFromLayout() {
+        name = layout.name
+
+        // Convert KMP Direction-keyed maps to String-keyed for simpler SwiftUI binding
+        for dirStr in allDirections {
+            let dir = wheelDirection(from: dirStr)
+            normalChords[dirStr] = (layout.normalChordMap[dir] as? [String]) ?? Array(repeating: "", count: 8)
+            shiftedChords[dirStr] = (layout.shiftedChordMap[dir] as? [String]) ?? Array(repeating: "", count: 8)
+
+            if let binding = layout.singleSwipeNormalMap[dir] as? SingleSwipeBinding {
+                singleSwipeNormal[dirStr] = serializeBinding(binding)
+            }
+            if let binding = layout.singleSwipeShiftedMap[dir] as? SingleSwipeBinding {
+                singleSwipeShifted[dirStr] = serializeBinding(binding)
+            }
+        }
+    }
+
+    private func saveLayout() {
+        let normalMap = NSMutableDictionary()
+        let shiftedMap = NSMutableDictionary()
+        let singleNormalMap = NSMutableDictionary()
+        let singleShiftedMap = NSMutableDictionary()
+
+        for dirStr in allDirections {
+            let dir = wheelDirection(from: dirStr)
+            normalMap[dir] = normalChords[dirStr] ?? Array(repeating: "", count: 8)
+            shiftedMap[dir] = shiftedChords[dirStr] ?? Array(repeating: "", count: 8)
+
+            if let bindStr = singleSwipeNormal[dirStr], let bind = deserializeBinding(bindStr) {
+                singleNormalMap[dir] = bind
+            }
+            if let bindStr = singleSwipeShifted[dirStr], let bind = deserializeBinding(bindStr) {
+                singleShiftedMap[dir] = bind
+            }
+        }
+
+        let updated = CustomLayout(
+            id: layout.id,
+            name: name.trimmingCharacters(in: .whitespaces).isEmpty ? "Custom Layout" : name.trimmingCharacters(in: .whitespaces),
+            normalChordMap: normalMap as! [Direction : [String]],
+            shiftedChordMap: shiftedMap as! [Direction : [String]],
+            singleSwipeNormalMap: singleNormalMap as! [Direction : SingleSwipeBinding],
+            singleSwipeShiftedMap: singleShiftedMap as! [Direction : SingleSwipeBinding]
+        )
+        onSave(updated)
+    }
+
+    private func wheelDirection(from str: String) -> Direction {
+        switch str {
+        case "N": return .n
+        case "NE": return .ne
+        case "E": return .e
+        case "SE": return .se
+        case "S": return .s
+        case "SW": return .sw
+        case "W": return .w
+        case "NW": return .nw
+        default: return .none
+        }
+    }
+
+    private func serializeBinding(_ b: SingleSwipeBinding) -> String {
+        return b.toSerializable()
+    }
+
+    private func deserializeBinding(_ s: String) -> SingleSwipeBinding? {
+        return SingleSwipeBinding.companion.fromSerializable(s: s)
+    }
+
+    // MARK: - Chord Editor
+
+    private func chordEditor(chords: Binding<[String: [String]]>, label: String) -> some View {
+        let pal = currentPalette
+        return List {
+            ForEach(Array(allDirections.enumerated()), id: \.offset) { idx, dirStr in
+                DisclosureGroup {
+                    ForEach(0..<8, id: \.self) { i in
+                        HStack {
+                            Circle()
+                                .fill(i < pal.count ? Color(hex: pal[i].hex) : Color.gray)
+                                .frame(width: 14, height: 14)
+                            Text("\(allDirections[i]) (\(i < pal.count ? pal[i].name : ""))")
+                                .frame(width: 100, alignment: .leading)
+                                .font(.caption)
+                            TextField("", text: Binding(
+                                get: { chords.wrappedValue[dirStr]?[i] ?? "" },
+                                set: { newVal in
+                                    var arr = chords.wrappedValue[dirStr] ?? Array(repeating: "", count: 8)
+                                    arr[i] = String(newVal.prefix(1))
+                                    chords.wrappedValue[dirStr] = arr
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(dirLabels[idx]).font(.body)
+                        Spacer()
+                        let chars = (chords.wrappedValue[dirStr] ?? []).filter { !$0.isEmpty }.joined(separator: " ")
+                        Text(chars).font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Single Swipe Editor
+
+    private var singleSwipeEditor: some View {
+        List {
+            Section("Normal Mode") {
+                ForEach(Array(allDirections.enumerated()), id: \.offset) { idx, dirStr in
+                    HStack {
+                        Text(dirLabels[idx]).frame(width: 80, alignment: .leading)
+                        Text(singleSwipeNormal[dirStr] ?? "(none)")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            Section("Shifted Mode") {
+                ForEach(Array(allDirections.enumerated()), id: \.offset) { idx, dirStr in
+                    HStack {
+                        Text(dirLabels[idx]).frame(width: 80, alignment: .leading)
+                        Text(singleSwipeShifted[dirStr] ?? "(none)")
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
         }
