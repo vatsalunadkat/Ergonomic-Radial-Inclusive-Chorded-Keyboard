@@ -10,6 +10,10 @@ class WordPredictionEngine {
 
     private val root = TrieNode()
     private var wordCount = 0
+    // Bigram map: previousWord -> list of (nextWord, frequency)
+    private val bigrams = mutableMapOf<String, MutableList<Pair<String, Int>>>()
+    // Default suggestions when no context is available
+    private var defaultSuggestions = listOf("I", "The", "Hello")
 
     // ── Trie data structure ──
 
@@ -29,6 +33,20 @@ class WordPredictionEngine {
         if (!node.isWord) wordCount++
         node.isWord = true
         node.frequency = maxOf(node.frequency, frequency)
+    }
+
+    fun insertBigram(word: String, nextWord: String, frequency: Int = 1) {
+        val key = word.lowercase().trim()
+        val value = nextWord.lowercase().trim()
+        if (key.isBlank() || value.isBlank()) return
+        val list = bigrams.getOrPut(key) { mutableListOf() }
+        // Update existing or add new
+        val existing = list.indexOfFirst { it.first == value }
+        if (existing >= 0) {
+            list[existing] = value to maxOf(list[existing].second, frequency)
+        } else {
+            list.add(value to frequency)
+        }
     }
 
     fun contains(word: String): Boolean {
@@ -134,11 +152,12 @@ class WordPredictionEngine {
         }
     }
 
-    // ── Suggestion API (unified completions + corrections) ──
+    // ── Suggestion API (unified completions + corrections + next-word) ──
 
     /**
      * Returns up to [limit] suggestions for the current word.
      * Prioritizes exact-prefix completions, then fills with corrections.
+     * Works with any prefix length including single characters.
      */
     fun getSuggestions(currentWord: String, limit: Int = 3): List<String> {
         if (currentWord.isBlank()) return emptyList()
@@ -147,12 +166,37 @@ class WordPredictionEngine {
         val completions = getCompletions(lower, limit)
         if (completions.size >= limit) return completions
 
-        // Fill remaining slots with corrections
-        val completionSet = completions.toSet()
-        val corrections = getCorrections(lower, limit, maxDistance = 1)
-            .filter { it !in completionSet && it != lower }
+        // Fill remaining slots with corrections (only for 2+ char words)
+        if (lower.length >= 2) {
+            val completionSet = completions.toSet()
+            val corrections = getCorrections(lower, limit, maxDistance = 1)
+                .filter { it !in completionSet && it != lower }
+            val combined = (completions + corrections).take(limit)
+            if (combined.size >= limit) return combined
+        }
 
-        return (completions + corrections).take(limit)
+        return completions.take(limit)
+    }
+
+    /**
+     * Returns up to [limit] next-word predictions based on the previous word.
+     */
+    fun getNextWordSuggestions(previousWord: String, limit: Int = 3): List<String> {
+        if (previousWord.isBlank()) return getDefaultSuggestions(limit)
+        val lower = previousWord.lowercase().trim()
+        val nextWords = bigrams[lower] ?: return getDefaultSuggestions(limit)
+        return nextWords
+            .sortedByDescending { it.second }
+            .map { it.first }
+            .take(limit)
+    }
+
+    /**
+     * Returns default suggestions for when no context is available
+     * (e.g., start of input or after punctuation).
+     */
+    fun getDefaultSuggestions(limit: Int = 3): List<String> {
+        return defaultSuggestions.take(limit)
     }
 
     // ── Edit distance utilities ──
@@ -351,6 +395,94 @@ class WordPredictionEngine {
             for (w in tier2) engine.insert(w, 500)
             for (w in tier3) engine.insert(w, 200)
             for (w in tier4) engine.insert(w, 100)
+
+            // ── Bigram data (next-word predictions) ──
+            loadBigrams(engine)
+
+            // Default suggestions for start of input
+            engine.defaultSuggestions = listOf("I", "The", "Hello")
+        }
+
+        private fun loadBigrams(engine: WordPredictionEngine) {
+            val bigramData = mapOf(
+                "i" to listOf("am" to 1000, "have" to 900, "was" to 800, "will" to 700, "can" to 600, "think" to 500, "know" to 450, "want" to 400, "like" to 350, "need" to 300),
+                "you" to listOf("are" to 1000, "can" to 800, "have" to 700, "will" to 600, "know" to 500, "want" to 400, "need" to 350, "should" to 300),
+                "he" to listOf("is" to 1000, "was" to 900, "will" to 700, "has" to 600, "would" to 500, "can" to 400, "said" to 350),
+                "she" to listOf("is" to 1000, "was" to 900, "will" to 700, "has" to 600, "would" to 500, "can" to 400, "said" to 350),
+                "it" to listOf("is" to 1000, "was" to 900, "will" to 700, "would" to 600, "can" to 500, "has" to 400),
+                "we" to listOf("are" to 1000, "have" to 800, "can" to 700, "will" to 600, "need" to 500, "should" to 400, "were" to 350),
+                "they" to listOf("are" to 1000, "have" to 800, "will" to 700, "can" to 600, "were" to 500, "would" to 400),
+                "the" to listOf("best" to 800, "first" to 700, "same" to 600, "most" to 500, "other" to 450, "next" to 400, "new" to 350, "last" to 300, "world" to 250),
+                "my" to listOf("name" to 1000, "own" to 600, "life" to 500, "family" to 400, "friend" to 350, "phone" to 300, "house" to 250, "self" to 200),
+                "is" to listOf("a" to 900, "the" to 800, "not" to 700, "very" to 500, "that" to 400, "it" to 350, "good" to 300),
+                "are" to listOf("you" to 900, "not" to 700, "the" to 600, "there" to 500, "we" to 400, "they" to 350),
+                "was" to listOf("a" to 800, "the" to 700, "not" to 600, "very" to 500, "it" to 400, "going" to 350),
+                "have" to listOf("a" to 900, "been" to 800, "to" to 700, "the" to 600, "not" to 500, "you" to 400),
+                "has" to listOf("been" to 900, "a" to 700, "the" to 600, "not" to 500, "to" to 400),
+                "do" to listOf("you" to 1000, "not" to 800, "it" to 700, "the" to 500, "this" to 400),
+                "does" to listOf("not" to 900, "it" to 700, "the" to 500, "this" to 400),
+                "did" to listOf("you" to 900, "not" to 800, "the" to 600, "it" to 500, "he" to 400),
+                "will" to listOf("be" to 1000, "have" to 700, "not" to 600, "you" to 500, "the" to 400),
+                "would" to listOf("be" to 900, "like" to 800, "have" to 700, "you" to 600, "not" to 500),
+                "can" to listOf("you" to 900, "be" to 700, "i" to 600, "we" to 500, "the" to 400),
+                "could" to listOf("be" to 800, "have" to 700, "you" to 600, "not" to 500),
+                "should" to listOf("be" to 800, "have" to 700, "i" to 600, "we" to 500, "not" to 400),
+                "what" to listOf("is" to 1000, "are" to 800, "do" to 700, "the" to 500, "about" to 400, "time" to 350),
+                "how" to listOf("are" to 1000, "do" to 800, "is" to 700, "much" to 600, "many" to 500, "about" to 400),
+                "there" to listOf("is" to 1000, "are" to 900, "was" to 700, "were" to 600),
+                "that" to listOf("is" to 900, "was" to 700, "the" to 600, "it" to 500, "you" to 400),
+                "this" to listOf("is" to 1000, "was" to 700, "the" to 500, "will" to 400),
+                "not" to listOf("a" to 700, "the" to 600, "be" to 500, "have" to 400, "sure" to 350),
+                "with" to listOf("the" to 800, "a" to 700, "you" to 600, "my" to 500, "his" to 400),
+                "for" to listOf("the" to 800, "a" to 700, "you" to 600, "me" to 500, "your" to 400),
+                "in" to listOf("the" to 900, "a" to 700, "my" to 500, "this" to 400, "your" to 350),
+                "on" to listOf("the" to 900, "a" to 600, "my" to 500, "your" to 400, "this" to 350),
+                "at" to listOf("the" to 800, "a" to 600, "home" to 500, "all" to 400, "least" to 350),
+                "to" to listOf("the" to 900, "be" to 800, "do" to 700, "get" to 600, "go" to 500, "have" to 400, "make" to 350),
+                "of" to listOf("the" to 1000, "a" to 700, "my" to 500, "this" to 400, "it" to 350),
+                "and" to listOf("the" to 800, "i" to 700, "a" to 600, "it" to 500, "we" to 400),
+                "but" to listOf("i" to 800, "the" to 700, "it" to 600, "he" to 500, "we" to 400),
+                "or" to listOf("the" to 600, "a" to 500, "not" to 400, "you" to 350),
+                "if" to listOf("you" to 900, "the" to 700, "i" to 600, "it" to 500, "we" to 400),
+                "so" to listOf("i" to 700, "much" to 600, "that" to 500, "the" to 400, "many" to 350),
+                "just" to listOf("a" to 700, "the" to 600, "like" to 500, "want" to 400, "need" to 350),
+                "very" to listOf("much" to 800, "good" to 700, "well" to 600, "happy" to 500, "important" to 400),
+                "good" to listOf("morning" to 1000, "night" to 800, "job" to 600, "luck" to 500, "to" to 400),
+                "thank" to listOf("you" to 1000, "god" to 400),
+                "thanks" to listOf("for" to 900, "a" to 400),
+                "please" to listOf("let" to 700, "help" to 600, "be" to 500, "do" to 400),
+                "name" to listOf("is" to 1000),
+                "going" to listOf("to" to 1000),
+                "want" to listOf("to" to 1000, "a" to 500, "the" to 400),
+                "need" to listOf("to" to 900, "a" to 600, "the" to 500),
+                "like" to listOf("to" to 800, "a" to 600, "the" to 500, "it" to 400, "this" to 350),
+                "love" to listOf("you" to 1000, "it" to 600, "the" to 400, "to" to 350),
+                "know" to listOf("that" to 700, "how" to 600, "what" to 500, "if" to 400, "the" to 350),
+                "think" to listOf("that" to 700, "it" to 600, "about" to 500, "so" to 400, "the" to 350),
+                "see" to listOf("you" to 800, "the" to 600, "it" to 500, "if" to 400),
+                "come" to listOf("back" to 700, "to" to 600, "here" to 500, "in" to 400),
+                "go" to listOf("to" to 900, "back" to 600, "home" to 500, "out" to 400),
+                "get" to listOf("the" to 700, "a" to 600, "it" to 500, "to" to 400, "out" to 350),
+                "take" to listOf("a" to 700, "the" to 600, "it" to 500, "care" to 400),
+                "make" to listOf("a" to 700, "the" to 600, "it" to 500, "sure" to 400),
+                "look" to listOf("at" to 800, "like" to 600, "for" to 500, "good" to 400),
+                "no" to listOf("one" to 700, "problem" to 600, "thanks" to 500, "way" to 400),
+                "yes" to listOf("i" to 700, "please" to 500, "it" to 400),
+                "hello" to listOf("how" to 700, "my" to 500, "there" to 400),
+                "hi" to listOf("how" to 700, "there" to 500, "my" to 400),
+                "nice" to listOf("to" to 800, "job" to 500, "day" to 400),
+                "happy" to listOf("birthday" to 800, "to" to 600, "new" to 400),
+                "new" to listOf("year" to 700, "york" to 500, "to" to 400),
+                "let" to listOf("me" to 900, "us" to 700, "the" to 500, "it" to 400),
+                "all" to listOf("the" to 800, "of" to 600, "right" to 500, "about" to 400),
+                "been" to listOf("a" to 700, "to" to 600, "the" to 500, "in" to 400)
+            )
+
+            for ((word, nextWords) in bigramData) {
+                for ((nextWord, freq) in nextWords) {
+                    engine.insertBigram(word, nextWord, freq)
+                }
+            }
         }
     }
 }

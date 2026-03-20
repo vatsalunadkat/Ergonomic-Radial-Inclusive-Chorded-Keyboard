@@ -434,13 +434,13 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         }
 
         if (previewChars.isEmpty()) {
-            previewContainer.visibility = View.INVISIBLE
+            previewCapsule.visibility = View.GONE
             lastHighlightedIndex = -1
             updateSuggestionBar()
             return
         }
 
-        previewContainer.visibility = View.VISIBLE
+        previewCapsule.visibility = View.VISIBLE
         // Hide suggestions while preview is active
         if (::suggestionBar.isInitialized) suggestionBar.visibility = View.GONE
 
@@ -586,11 +586,19 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
     private fun onSuggestionTapped(index: Int) {
         if (index >= pendingSuggestions.size) return
         val suggestion = pendingSuggestions[index]
+        val wasNextWordMode = stateMachine.isNextWordMode
         val (charsToDelete, word) = stateMachine.acceptSuggestion(suggestion)
         val ic = currentInputConnection ?: return
         // Delete the partial word
         if (charsToDelete > 0) {
             ic.deleteSurroundingText(charsToDelete, 0)
+        }
+        // In next-word mode, prepend a space if the text before cursor doesn't already end with one
+        if (wasNextWordMode && charsToDelete == 0) {
+            val before = ic.getTextBeforeCursor(1, 0)?.toString() ?: ""
+            if (before.isNotEmpty() && !before.endsWith(" ")) {
+                ic.commitText(" ", 1)
+            }
         }
         // Insert the full suggestion
         ic.commitText(word, 1)
@@ -600,6 +608,7 @@ class MyInputMethodService : InputMethodService(), KeyboardActionDelegate {
         if (!::suggestionBar.isInitialized) return
         val showSuggestions = stateMachine.areBothDialsAtHome() && pendingSuggestions.isNotEmpty()
         if (showSuggestions) {
+            previewCapsule.visibility = View.GONE
             suggestionBar.visibility = View.VISIBLE
             val isDark = isEffectiveDarkMode()
             val textColor = if (isDark) Color.WHITE else Color.parseColor("#333333")

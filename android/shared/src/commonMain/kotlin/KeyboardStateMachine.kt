@@ -15,10 +15,20 @@ class KeyboardStateMachine(
 
     // Word buffer: tracks the current word being typed
     private val wordBuffer = StringBuilder()
+    // Tracks the last completed word for next-word prediction
+    private var lastCompletedWord = ""
+    // Whether current suggestions are next-word predictions (buffer empty)
+    var isNextWordMode: Boolean = false
+        private set
 
     // Current suggestions (visible to platforms)
     var currentSuggestions: List<String> = emptyList()
         private set
+
+    init {
+        // Show default suggestions when keyboard first opens
+        updateSuggestions()
+    }
 
     // 核心状态
     private var leftActiveDir = Direction.NONE
@@ -376,6 +386,9 @@ class KeyboardStateMachine(
                 wordBuffer.append(ch)
             } else {
                 // Non-letter character (punctuation, etc.) — treat as word boundary
+                if (wordBuffer.isNotEmpty()) {
+                    lastCompletedWord = wordBuffer.toString()
+                }
                 wordBuffer.clear()
             }
         }
@@ -383,6 +396,9 @@ class KeyboardStateMachine(
     }
 
     private fun onWordBoundary() {
+        if (wordBuffer.isNotEmpty()) {
+            lastCompletedWord = wordBuffer.toString()
+        }
         wordBuffer.clear()
         updateSuggestions()
     }
@@ -407,26 +423,32 @@ class KeyboardStateMachine(
 
     private fun updateSuggestions() {
         val prefix = wordBuffer.toString()
-        currentSuggestions = if (prefix.length >= 2) {
-            predictor.getSuggestions(prefix, limit = 3)
+        if (prefix.isNotEmpty()) {
+            // Currently typing a word — show completions/corrections
+            isNextWordMode = false
+            currentSuggestions = predictor.getSuggestions(prefix, limit = 3)
         } else {
-            emptyList()
+            // Buffer is empty — show next-word predictions or defaults
+            isNextWordMode = true
+            currentSuggestions = predictor.getNextWordSuggestions(lastCompletedWord, limit = 3)
         }
         delegate.onSuggestionsUpdated(currentSuggestions)
     }
 
     /**
      * Called by the platform when the user taps a suggestion word.
-     * Replaces the current partial word with the full suggestion.
-     * Returns the number of characters to delete before inserting the suggestion.
+     * In normal mode: replaces the current partial word with the full suggestion.
+     * In next-word mode: inserts the suggestion (buffer was empty).
+     * Returns the number of characters to delete and the text to insert.
      */
     fun acceptSuggestion(suggestion: String): Pair<Int, String> {
         val charsToDelete = wordBuffer.length
+        lastCompletedWord = suggestion
         wordBuffer.clear()
-        wordBuffer.append(suggestion)
-        // After accepting, clear suggestions (word is complete)
-        currentSuggestions = emptyList()
-        delegate.onSuggestionsUpdated(emptyList())
+        // After accepting, show next-word predictions for the accepted word
+        isNextWordMode = true
+        currentSuggestions = predictor.getNextWordSuggestions(suggestion, limit = 3)
+        delegate.onSuggestionsUpdated(currentSuggestions)
         return Pair(charsToDelete, suggestion)
     }
 
