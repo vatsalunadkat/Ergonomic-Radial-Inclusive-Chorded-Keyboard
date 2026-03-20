@@ -801,7 +801,8 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
                 leftDir: leftDir,
                 rightDir: sharedDirection(for: rightDirection),
                 mode: sharedMode,
-                layout: layoutType
+                layout: layoutType,
+                customLayout: isCustomLayout ? stateMachine.activeCustomLayout : nil
             )
 
             guard !text.isEmpty else { return nil }
@@ -846,7 +847,8 @@ class KeyboardViewController: UIInputViewController, KeyboardActionDelegate {
                 leftDir: sharedDirection(for: leftDir),
                 rightDir: sharedRightDir,
                 mode: sharedM,
-                layout: layoutType
+                layout: layoutType,
+                customLayout: isCustomLayout ? stateMachine.activeCustomLayout : nil
             )
             if !text.isEmpty {
                 result.append(KeyboardPreviewItem(id: itemId, direction: direction, text: text, color: color))

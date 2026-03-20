@@ -131,68 +131,67 @@ struct SettingsView: View {
                 fontOption(key: "opendyslexic", label: "OpenDyslexic", font: .custom("OpenDyslexic", size: 17))
             }
 
-                // Accessibility Section
-                Section(header: Text("Accessibility")) {
-                    Toggle("Enable Colorblind Mode", isOn: $colorblindMode)
+            // Accessibility Section
+            Section(header: Text("Accessibility")) {
+                Toggle("Enable Colorblind Mode", isOn: $colorblindMode)
 
-                    if colorblindMode {
-                        Text("Select the palette that works best for your type of color vision. Each option shows a preview of the 8 colors used on the keyboard.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                if colorblindMode {
+                    Text("Select the palette that works best for your type of color vision. Each option shows a preview of the 8 colors used on the keyboard.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
 
-                        ColorPaletteOption(
-                            title: "Okabe-Ito (Universal)",
-                            subtitle: "Recommended for all types of color vision deficiency",
-                            palette: ColorPaletteDefinitions.okabeIto,
-                            selected: colorPalette == "okabe_ito",
-                            onSelect: { colorPalette = "okabe_ito" }
-                        )
-                        ColorPaletteOption(
-                            title: "Deuteranopia (Green-blind)",
-                            subtitle: "Optimized for green-blind users",
-                            palette: ColorPaletteDefinitions.deuteranopia,
-                            selected: colorPalette == "deuteranopia",
-                            onSelect: { colorPalette = "deuteranopia" }
-                        )
-                        ColorPaletteOption(
-                            title: "Protanopia (Red-blind)",
-                            subtitle: "Optimized for red-blind users",
-                            palette: ColorPaletteDefinitions.protanopia,
-                            selected: colorPalette == "protanopia",
-                            onSelect: { colorPalette = "protanopia" }
-                        )
-                        ColorPaletteOption(
-                            title: "Tritanopia (Blue-blind)",
-                            subtitle: "Optimized for blue-blind users",
-                            palette: ColorPaletteDefinitions.tritanopia,
-                            selected: colorPalette == "tritanopia",
-                            onSelect: { colorPalette = "tritanopia" }
-                        )
-                        ColorPaletteOption(
-                            title: "Pastel (Soft)",
-                            subtitle: "Softer colors that are easier on the eyes",
-                            palette: ColorPaletteDefinitions.pastel,
-                            selected: colorPalette == "pastel",
-                            onSelect: { colorPalette = "pastel" }
-                        )
-                    }
-
-                    Toggle("Left-Handed Mode", isOn: $leftHandedMode)
+                    ColorPaletteOption(
+                        title: "Okabe-Ito (Universal)",
+                        subtitle: "Recommended for all types of color vision deficiency",
+                        palette: ColorPaletteDefinitions.okabeIto,
+                        selected: colorPalette == "okabe_ito",
+                        onSelect: { colorPalette = "okabe_ito" }
+                    )
+                    ColorPaletteOption(
+                        title: "Deuteranopia (Green-blind)",
+                        subtitle: "Optimized for green-blind users",
+                        palette: ColorPaletteDefinitions.deuteranopia,
+                        selected: colorPalette == "deuteranopia",
+                        onSelect: { colorPalette = "deuteranopia" }
+                    )
+                    ColorPaletteOption(
+                        title: "Protanopia (Red-blind)",
+                        subtitle: "Optimized for red-blind users",
+                        palette: ColorPaletteDefinitions.protanopia,
+                        selected: colorPalette == "protanopia",
+                        onSelect: { colorPalette = "protanopia" }
+                    )
+                    ColorPaletteOption(
+                        title: "Tritanopia (Blue-blind)",
+                        subtitle: "Optimized for blue-blind users",
+                        palette: ColorPaletteDefinitions.tritanopia,
+                        selected: colorPalette == "tritanopia",
+                        onSelect: { colorPalette = "tritanopia" }
+                    )
+                    ColorPaletteOption(
+                        title: "Pastel (Soft)",
+                        subtitle: "Softer colors that are easier on the eyes",
+                        palette: ColorPaletteDefinitions.pastel,
+                        selected: colorPalette == "pastel",
+                        onSelect: { colorPalette = "pastel" }
+                    )
                 }
-                
-                // Privacy & Security Section
-                Section(header: Text("Privacy & Security")) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("🔒 Your privacy is our priority. ERICKeyboard:")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                        
-                        Text("✓ Does NOT collect any text you type\n✓ Does NOT store passwords\n✓ Only stores preferences locally")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 5)
+
+                Toggle("Left-Handed Mode", isOn: $leftHandedMode)
+            }
+
+            // Privacy & Security Section
+            Section(header: Text("Privacy & Security")) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("🔒 Your privacy is our priority. ERICKeyboard:")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+
+                    Text("✓ Does NOT collect any text you type\n✓ Does NOT store passwords\n✓ Only stores preferences locally")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
+                .padding(.vertical, 5)
             }
         }
     }
